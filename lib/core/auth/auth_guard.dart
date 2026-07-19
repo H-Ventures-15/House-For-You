@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// État d'authentification minimal — l'authentification réelle (Supabase
@@ -11,3 +12,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 final authStateProvider = StateProvider<bool>((ref) => false);
 
 bool isAuthenticated(WidgetRef ref) => ref.watch(authStateProvider);
+
+/// Porte d'entrée pour toute action protégée (favori, contact, visite,
+/// alerte). L'écran de connexion/inscription modal réel arrive à l'étape 5 —
+/// en attendant, un invité qui déclenche une action protégée voit un message
+/// explicite plutôt qu'un blocage silencieux ou un écran de connexion créé
+/// prématurément.
+bool requireAuth(
+  BuildContext context,
+  WidgetRef ref, {
+  required String message,
+}) {
+  if (isAuthenticated(ref)) return true;
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(content: Text(message)));
+  return false;
+}

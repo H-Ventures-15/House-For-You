@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:house_for_you/app.dart';
 import 'package:house_for_you/core/router/app_router.dart';
+import 'package:network_image_mock/network_image_mock.dart';
 
 void main() {
   setUp(() {
@@ -13,26 +14,30 @@ void main() {
   testWidgets('affiche les 4 onglets et démarre sur Découvrir', (
     tester,
   ) async {
-    await tester.pumpWidget(const HouseForYouApp());
-    await tester.pumpAndSettle();
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(const HouseForYouApp());
+      await tester.pumpAndSettle();
 
-    expect(find.byType(NavigationBar), findsOneWidget);
-    expect(find.text('Découvrir'), findsWidgets);
-    expect(find.text('Rechercher'), findsOneWidget);
-    expect(find.text('Favoris'), findsOneWidget);
-    expect(find.text('Profil'), findsOneWidget);
+      expect(find.byType(NavigationBar), findsOneWidget);
+      expect(find.text('Découvrir'), findsWidgets);
+      expect(find.text('Rechercher'), findsOneWidget);
+      expect(find.text('Favoris'), findsOneWidget);
+      expect(find.text('Profil'), findsOneWidget);
+    });
   });
 
   testWidgets('taper sur un onglet affiche son contenu', (tester) async {
-    await tester.pumpWidget(const HouseForYouApp());
-    await tester.pumpAndSettle();
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(const HouseForYouApp());
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Favoris'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Favoris'));
+      await tester.pumpAndSettle();
 
-    expect(
-      find.text('Retrouve ici les biens que tu auras sauvegardés.'),
-      findsOneWidget,
-    );
+      expect(
+        find.text('Retrouve ici les biens que tu auras sauvegardés.'),
+        findsOneWidget,
+      );
+    });
   });
 }

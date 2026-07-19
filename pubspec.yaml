@@ -21,11 +21,13 @@ dependencies:
 
   # Config (.env) — pas de secret dans l'app, uniquement des clés publiques
   flutter_dotenv: ^5.1.0
+  share_plus: ^13.2.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  network_image_mock: ^2.1.1
 
 flutter:
   uses-material-design: true
