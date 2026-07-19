@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:house_for_you/core/widgets/floating_search_bar.dart';
 import 'package:house_for_you/data/datasources/mock/mock_property_data.dart';
 import 'package:house_for_you/features/discover/discover_screen.dart';
 import 'package:network_image_mock/network_image_mock.dart';
@@ -97,6 +98,66 @@ void main() {
 
       expect(find.byIcon(Icons.favorite_border), findsOneWidget);
       expect(find.byIcon(Icons.share_outlined), findsOneWidget);
+    });
+  });
+
+  testWidgets(
+    'la barre de recherche se masque en avançant et réapparaît en reculant',
+    (tester) async {
+      await mockNetworkImagesFor(() async {
+        await tester.pumpWidget(_wrap(const DiscoverScreen()));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(FloatingSearchBar), findsOneWidget);
+        expect(tester.widget<Opacity>(find.byType(Opacity)).opacity, 1.0);
+
+        // Une page pile (viewport de test 600px de haut) : la barre doit
+        // finir totalement masquée, pas seulement atténuée.
+        await tester.drag(
+          find.byKey(const Key('discover-feed')),
+          const Offset(0, -600),
+        );
+        await tester.pumpAndSettle();
+
+        expect(tester.widget<Opacity>(find.byType(Opacity)).opacity, 0.0);
+
+        await tester.drag(
+          find.byKey(const Key('discover-feed')),
+          const Offset(0, 600),
+        );
+        await tester.pumpAndSettle();
+
+        expect(tester.widget<Opacity>(find.byType(Opacity)).opacity, 1.0);
+      });
+    },
+  );
+
+  testWidgets('le bouton filtres affiche un message', (tester) async {
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(_wrap(const DiscoverScreen()));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Filtres'));
+      await tester.pump();
+
+      expect(find.text('Filtres bientôt disponibles.'), findsOneWidget);
+    });
+  });
+
+  testWidgets('les recherches enregistrées s\'ouvrent depuis la barre', (
+    tester,
+  ) async {
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(_wrap(const DiscoverScreen()));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Recherches enregistrées'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Recherches enregistrées'), findsOneWidget);
+      expect(find.text('Maison à Mons'), findsOneWidget);
+      expect(find.text('Appartement à Bruxelles'), findsOneWidget);
+      expect(find.text('Villa à Namur'), findsOneWidget);
     });
   });
 }

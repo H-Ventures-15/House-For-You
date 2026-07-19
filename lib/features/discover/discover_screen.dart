@@ -5,7 +5,9 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../core/auth/auth_guard.dart';
 import '../../core/services/session_id.dart';
+import '../../core/theme/app_spacing.dart';
 import '../../core/widgets/error_state.dart';
+import '../../core/widgets/floating_search_bar.dart';
 import '../../core/widgets/loading_state.dart';
 import '../../core/widgets/property_card.dart';
 import '../../data/models/agency.dart';
@@ -14,6 +16,7 @@ import '../../data/models/property_event.dart';
 import '../../data/providers/favorites_controller.dart';
 import '../../data/providers/feed_providers.dart';
 import '../../data/providers/repository_providers.dart';
+import 'saved_searches_sheet.dart';
 
 /// Onglet Découvrir — feed vertical plein écran, un bien par page. Le swipe
 /// vertical fait défiler les biens ; le swipe horizontal, à l'intérieur de
@@ -64,16 +67,46 @@ class _DiscoverFeedState extends ConsumerState<_DiscoverFeed> {
   final PageController _controller = PageController();
   final Set<String> _trackedImpressions = {};
 
+  /// 1 = barre flottante entièrement visible, 0 = entièrement masquée.
+  /// Suit le doigt en continu pendant le drag (pas un show/hide binaire) —
+  /// voir `_onScroll` — puis se recale exactement sur 0 ou 1 dès qu'une
+  /// page est réellement franchie — voir `_onPageChanged` — pour ne jamais
+  /// rester bloquée sur une valeur intermédiaire à cause d'un léger
+  /// dépassement de la simulation physique en fin de geste.
+  final ValueNotifier<double> _barVisibility = ValueNotifier(1);
+  double? _lastRawPage;
+  int _lastSettledIndex = 0;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _trackImpression(0));
+    _controller.addListener(_onScroll);
   }
 
   @override
   void dispose() {
+    _controller.removeListener(_onScroll);
     _controller.dispose();
+    _barVisibility.dispose();
     super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_controller.hasClients) return;
+    final page = _controller.page;
+    if (page == null) return;
+    if (_lastRawPage != null) {
+      final delta = page - _lastRawPage!;
+      _barVisibility.value = (_barVisibility.value - delta).clamp(0.0, 1.0);
+    }
+    _lastRawPage = page;
+  }
+
+  void _onPageChanged(int index) {
+    _trackImpression(index);
+    _barVisibility.value = index > _lastSettledIndex ? 0 : 1;
+    _lastSettledIndex = index;
   }
 
   void _trackImpression(int index) {
@@ -109,38 +142,94 @@ class _DiscoverFeedState extends ConsumerState<_DiscoverFeed> {
         );
   }
 
-  void _handleToggleFavorite(Property property) {
+  /// Retourne `true` si le favori a effectivement changé (session
+  /// authentifiée) — `false` si bloqué par la porte d'authentification, pour
+  /// que l'appelant (bouton ou double tap) sache s'il doit animer.
+  bool _handleToggleFavorite(Property property) {
     final granted = requireAuth(
       context,
       ref,
       message: 'Connecte-toi pour ajouter ce bien à tes favoris',
     );
-    if (!granted) return;
+    if (!granted) return false;
     ref.read(favoritesControllerProvider.notifier).toggle(property.id);
+    return true;
+  }
+
+  void _handleFilters() {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(content: Text('Filtres bientôt disponibles.')),
+      );
   }
 
   @override
   Widget build(BuildContext context) {
     final favoriteIds = ref.watch(favoritesControllerProvider);
 
-    return PageView.builder(
-      key: const Key('discover-feed'),
-      controller: _controller,
-      scrollDirection: Axis.vertical,
-      onPageChanged: _trackImpression,
-      itemCount: widget.properties.length,
-      itemBuilder: (context, index) {
-        final property = widget.properties[index];
-        return PropertyCard.feed(
-          key: ValueKey(property.id),
-          property: property,
-          isFavorite: favoriteIds.contains(property.id),
-          agency: widget.agenciesById[property.agencyId],
-          onTap: () => context.push('/property/${property.id}'),
-          onToggleFavorite: () => _handleToggleFavorite(property),
-          onShare: () => _handleShare(property),
-        );
-      },
+    return Stack(
+      children: [
+        PageView.builder(
+          key: const Key('discover-feed'),
+          controller: _controller,
+          scrollDirection: Axis.vertical,
+          onPageChanged: _onPageChanged,
+          itemCount: widget.properties.length,
+          itemBuilder: (context, index) {
+            final property = widget.properties[index];
+            return AnimatedBuilder(
+              animation: _controller,
+              builder: (context, child) {
+                final page = _controller.hasClients
+                    ? (_controller.page ?? _controller.initialPage.toDouble())
+                    : index.toDouble();
+                final distance = (page - index).abs().clamp(0.0, 1.0);
+                final scale = 1 - distance * 0.06;
+                return Transform.scale(scale: scale, child: child);
+              },
+              child: PropertyCard.feed(
+                key: ValueKey(property.id),
+                property: property,
+                isFavorite: favoriteIds.contains(property.id),
+                agency: widget.agenciesById[property.agencyId],
+                onTap: () => context.push('/property/${property.id}'),
+                onToggleFavorite: () => _handleToggleFavorite(property),
+                onShare: () => _handleShare(property),
+              ),
+            );
+          },
+        ),
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.only(top: AppSpacing.sm),
+              child: ValueListenableBuilder<double>(
+                valueListenable: _barVisibility,
+                builder: (context, visibility, child) {
+                  return Opacity(
+                    opacity: visibility,
+                    child: Transform.translate(
+                      offset: Offset(0, (1 - visibility) * -32),
+                      child: child,
+                    ),
+                  );
+                },
+                child: FloatingSearchBar(
+                  summary: 'Toute la Belgique · Tous types · Budget libre',
+                  onTap: _handleFilters,
+                  onFilters: _handleFilters,
+                  onSavedSearches: () => showSavedSearchesSheet(context),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

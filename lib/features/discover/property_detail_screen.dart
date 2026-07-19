@@ -34,8 +34,51 @@ class PropertyDetailScreen extends ConsumerStatefulWidget {
       _PropertyDetailScreenState();
 }
 
-class _PropertyDetailScreenState extends ConsumerState<PropertyDetailScreen> {
+class _PropertyDetailScreenState extends ConsumerState<PropertyDetailScreen>
+    with SingleTickerProviderStateMixin {
   bool _trackedOpen = false;
+
+  /// 0 = fiche au repos, 1 = fiche totalement "balancée" hors de l'écran.
+  /// Suit le doigt en direct pendant le drag ; s'anime jusqu'à 0 ou 1 au
+  /// relâchement (voir `_SwipeToDismiss`).
+  late final AnimationController _dismissController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 260),
+  );
+
+  @override
+  void dispose() {
+    _dismissController.dispose();
+    super.dispose();
+  }
+
+  void _onDismissDragUpdate(DragUpdateDetails details) {
+    final width = MediaQuery.of(context).size.width;
+    _dismissController.value =
+        (_dismissController.value + details.delta.dx / width).clamp(0.0, 1.0);
+  }
+
+  void _onDismissDragEnd(DragEndDetails details) {
+    final shouldDismiss = _dismissController.value > 0.32 ||
+        details.velocity.pixelsPerSecond.dx > 700;
+    if (shouldDismiss) {
+      _dismissController
+          .animateTo(
+        1,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeIn,
+      )
+          .whenComplete(() {
+        if (mounted) context.pop();
+      });
+    } else {
+      _dismissController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeOutBack,
+      );
+    }
+  }
 
   void _trackDetailOpenOnce() {
     if (_trackedOpen) return;
@@ -115,13 +158,21 @@ class _PropertyDetailScreenState extends ConsumerState<PropertyDetailScreen> {
           }
           _trackDetailOpenOnce();
           final agency = agenciesAsync.valueOrNull?[property.agencyId];
-          return _DetailBody(
-            property: property,
-            agency: agency,
-            isFavorite: favoriteIds.contains(property.id),
-            onShare: () => _handleShare(property),
-            onToggleFavorite: () => _handleToggleFavorite(property),
-            onContact: _handleContact,
+          final galleryHeight = MediaQuery.of(context).size.height * 0.48;
+          return _SwipeToDismiss(
+            controller: _dismissController,
+            galleryHeight: galleryHeight,
+            onDragUpdate: _onDismissDragUpdate,
+            onDragEnd: _onDismissDragEnd,
+            child: _DetailBody(
+              property: property,
+              agency: agency,
+              isFavorite: favoriteIds.contains(property.id),
+              galleryHeight: galleryHeight,
+              onShare: () => _handleShare(property),
+              onToggleFavorite: () => _handleToggleFavorite(property),
+              onContact: _handleContact,
+            ),
           );
         },
       ),
@@ -134,6 +185,7 @@ class _DetailBody extends StatelessWidget {
     required this.property,
     required this.agency,
     required this.isFavorite,
+    required this.galleryHeight,
     required this.onShare,
     required this.onToggleFavorite,
     required this.onContact,
@@ -142,14 +194,13 @@ class _DetailBody extends StatelessWidget {
   final Property property;
   final Agency? agency;
   final bool isFavorite;
+  final double galleryHeight;
   final VoidCallback onShare;
   final VoidCallback onToggleFavorite;
   final VoidCallback onContact;
 
   @override
   Widget build(BuildContext context) {
-    final galleryHeight = MediaQuery.of(context).size.height * 0.48;
-
     return Stack(
       children: [
         CustomScrollView(
@@ -289,6 +340,66 @@ class _DetailBody extends StatelessWidget {
       if (property.garage) 'Garage',
       if (property.terrace) 'Terrasse',
     ];
+  }
+}
+
+/// Ferme la fiche par swipe horizontal vers la droite, avec un effet de
+/// "balancer" (translation + légère rotation autour du bord gauche). La
+/// zone de détection se limite à la partie sous la galerie photo : la
+/// galerie garde son propre swipe horizontal (photo précédente/suivante)
+/// sans ambiguïté de geste. Le suivi du doigt est direct (1:1), pas une
+/// simple apparition/disparition.
+class _SwipeToDismiss extends StatelessWidget {
+  const _SwipeToDismiss({
+    required this.controller,
+    required this.galleryHeight,
+    required this.onDragUpdate,
+    required this.onDragEnd,
+    required this.child,
+  });
+
+  final AnimationController controller;
+  final double galleryHeight;
+  final GestureDragUpdateCallback onDragUpdate;
+  final GestureDragEndCallback onDragEnd;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    return Stack(
+      children: [
+        AnimatedBuilder(
+          animation: controller,
+          builder: (context, animatedChild) {
+            final t = controller.value;
+            return Opacity(
+              opacity: 1 - t * 0.55,
+              child: Transform.translate(
+                offset: Offset(t * screenWidth * 1.3, 0),
+                child: Transform.rotate(
+                  angle: t * 0.10,
+                  alignment: Alignment.centerLeft,
+                  child: animatedChild,
+                ),
+              ),
+            );
+          },
+          child: child,
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          top: galleryHeight,
+          bottom: 0,
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onHorizontalDragUpdate: onDragUpdate,
+            onHorizontalDragEnd: onDragEnd,
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -632,6 +743,7 @@ class _RoundIconButton extends StatelessWidget {
         decoration: const BoxDecoration(
           color: Colors.white70,
           shape: BoxShape.circle,
+          boxShadow: kFloatingButtonShadow,
         ),
         child: Icon(icon, color: iconColor ?? AppColors.textPrimary, size: 22),
       ),

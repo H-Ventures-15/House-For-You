@@ -14,7 +14,7 @@ class PropertyCard extends StatelessWidget {
     required this.property,
     required this.isFavorite,
     required this.onTap,
-    required this.onToggleFavorite,
+    required bool Function() this.onToggleFavorite,
     required VoidCallback this.onShare,
     this.agency,
     this.onContact,
@@ -25,7 +25,7 @@ class PropertyCard extends StatelessWidget {
     required this.property,
     required this.isFavorite,
     required this.onTap,
-    required this.onToggleFavorite,
+    required bool Function() this.onToggleFavorite,
     this.onContact,
     super.key,
   })  : _variant = _PropertyCardVariant.list,
@@ -35,7 +35,11 @@ class PropertyCard extends StatelessWidget {
   final Property property;
   final bool isFavorite;
   final VoidCallback onTap;
-  final VoidCallback onToggleFavorite;
+
+  /// Retourne `false` si l'action a été bloquée (invité non authentifié) —
+  /// utilisé pour ne déclencher l'animation du double tap que si le favori
+  /// a réellement changé (voir `_FeedCard`).
+  final bool Function()? onToggleFavorite;
   final VoidCallback? onContact;
   final VoidCallback? onShare;
   final Agency? agency;
@@ -54,7 +58,7 @@ class PropertyCard extends StatelessWidget {
         property: property,
         isFavorite: isFavorite,
         onTap: onTap,
-        onToggleFavorite: onToggleFavorite,
+        onToggleFavorite: onToggleFavorite!,
         onShare: onShare!,
         agency: agency,
         priceLabel: _priceLabel,
@@ -101,7 +105,7 @@ class PropertyCard extends StatelessWidget {
               padding: const EdgeInsets.all(AppSpacing.sm),
               child: _FavoriteButton(
                 isFavorite: isFavorite,
-                onTap: onToggleFavorite,
+                onTap: () => onToggleFavorite!(),
               ),
             ),
           ],
@@ -132,6 +136,18 @@ String propertyTypeLabel(PropertyType type) {
     PropertyType.other => 'Bien',
   };
 }
+
+/// Ombre légère commune aux boutons circulaires flottants (favori, partage,
+/// retour...) — les détache visuellement de l'image derrière eux.
+const List<BoxShadow> kFloatingButtonShadow = [
+  BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 3)),
+];
+
+/// Légère ombre portée sur le texte superposé aux photos — garde le prix et
+/// les libellés lisibles quel que soit le contraste de l'image derrière.
+const List<Shadow> kOverlayTextShadow = [
+  Shadow(color: Colors.black45, blurRadius: 6, offset: Offset(0, 1)),
+];
 
 class _CoverImage extends StatelessWidget {
   const _CoverImage({required this.url});
@@ -174,17 +190,40 @@ class _FavoriteButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
+      child: Container(
         padding: const EdgeInsets.all(AppSpacing.sm),
         decoration: const BoxDecoration(
           color: Colors.white70,
           shape: BoxShape.circle,
+          boxShadow: kFloatingButtonShadow,
         ),
-        child: Icon(
-          isFavorite ? Icons.favorite : Icons.favorite_border,
-          color: isFavorite ? AppColors.error : AppColors.textPrimary,
-          size: 20,
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          transitionBuilder: (child, animation) => ScaleTransition(
+            scale: TweenSequence<double>([
+              TweenSequenceItem(
+                tween: Tween(
+                  begin: 0.6,
+                  end: 1.25,
+                ).chain(CurveTween(curve: Curves.easeOutBack)),
+                weight: 60,
+              ),
+              TweenSequenceItem(
+                tween: Tween(
+                  begin: 1.25,
+                  end: 1.0,
+                ).chain(CurveTween(curve: Curves.easeOut)),
+                weight: 40,
+              ),
+            ]).animate(animation),
+            child: child,
+          ),
+          child: Icon(
+            isFavorite ? Icons.favorite : Icons.favorite_border,
+            key: ValueKey(isFavorite),
+            color: isFavorite ? AppColors.error : AppColors.textPrimary,
+            size: 20,
+          ),
         ),
       ),
     );
@@ -205,6 +244,7 @@ class _ShareButton extends StatelessWidget {
         decoration: const BoxDecoration(
           color: Colors.white70,
           shape: BoxShape.circle,
+          boxShadow: kFloatingButtonShadow,
         ),
         child: const Icon(
           Icons.share_outlined,
@@ -221,6 +261,11 @@ class _ShareButton extends StatelessWidget {
 /// biens (voir `DiscoverScreen`). Conserve son état (photo affichée) tant
 /// que le bien reste dans la fenêtre du `PageView` vertical grâce à
 /// `AutomaticKeepAliveClientMixin`.
+///
+/// Deux zones de gestes bien distinctes, jamais mélangées :
+/// - le média (photo/vidéo) : swipe horizontal → change de photo ;
+///   double tap → like/unlike avec animation.
+/// - le bloc texte (prix/titre/description) en bas : tap → ouvre la fiche.
 class _FeedCard extends StatefulWidget {
   const _FeedCard({
     required this.property,
@@ -236,7 +281,7 @@ class _FeedCard extends StatefulWidget {
   final Property property;
   final bool isFavorite;
   final VoidCallback onTap;
-  final VoidCallback onToggleFavorite;
+  final bool Function() onToggleFavorite;
   final VoidCallback onShare;
   final String priceLabel;
   final String subtitle;
@@ -254,6 +299,8 @@ class _FeedCardState extends State<_FeedCard>
 
   final PageController _galleryController = PageController();
   int _photoIndex = 0;
+  Offset? _likeBurstPosition;
+  int _likeBurstId = 0;
 
   @override
   bool get wantKeepAlive => true;
@@ -264,30 +311,65 @@ class _FeedCardState extends State<_FeedCard>
     super.dispose();
   }
 
+  void _handleDoubleTapDown(TapDownDetails details) {
+    _likeBurstPosition = details.localPosition;
+  }
+
+  void _handleDoubleTap() {
+    final proceeded = widget.onToggleFavorite();
+    if (!proceeded) return;
+    setState(() => _likeBurstId++);
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
     final media = widget.property.media;
     final property = widget.property;
 
-    return GestureDetector(
-      onTap: widget.onTap,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          _Gallery(
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onDoubleTapDown: _handleDoubleTapDown,
+          onDoubleTap: _handleDoubleTap,
+          child: _Gallery(
             media: media,
             controller: _galleryController,
             onPageChanged: (index) => setState(() => _photoIndex = index),
           ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
+        ),
+        // Assombrit légèrement le haut de l'image pour garder l'indicateur
+        // photo et le badge agence lisibles sur un ciel clair, par exemple.
+        const Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 110,
+          child: IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0x66000000), Colors.transparent],
+                ),
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: widget.onTap,
             child: Container(
               padding: const EdgeInsets.fromLTRB(
                 AppSpacing.lg,
-                AppSpacing.xxl,
+                AppSpacing.xxl * 1.5,
                 AppSpacing.lg,
                 AppSpacing.lg,
               ),
@@ -295,7 +377,12 @@ class _FeedCardState extends State<_FeedCard>
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, AppColors.overlayScrim],
+                  stops: [0, 0.55, 1],
+                  colors: [
+                    Colors.transparent,
+                    Color(0x99000000),
+                    AppColors.overlayScrim,
+                  ],
                 ),
               ),
               child: SafeArea(
@@ -308,6 +395,7 @@ class _FeedCardState extends State<_FeedCard>
                       widget.priceLabel,
                       style: AppTypography.titleMedium.copyWith(
                         color: Colors.white,
+                        shadows: kOverlayTextShadow,
                       ),
                     ),
                     const SizedBox(height: AppSpacing.xs),
@@ -315,6 +403,7 @@ class _FeedCardState extends State<_FeedCard>
                       widget.subtitle,
                       style: AppTypography.bodySecondary.copyWith(
                         color: Colors.white70,
+                        shadows: kOverlayTextShadow,
                       ),
                     ),
                     const SizedBox(height: AppSpacing.sm),
@@ -326,6 +415,7 @@ class _FeedCardState extends State<_FeedCard>
                       overflow: TextOverflow.ellipsis,
                       style: AppTypography.bodySecondary.copyWith(
                         color: Colors.white70,
+                        shadows: kOverlayTextShadow,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -334,6 +424,7 @@ class _FeedCardState extends State<_FeedCard>
                       style: AppTypography.bodySecondary.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.w600,
+                        shadows: kOverlayTextShadow,
                       ),
                     ),
                   ],
@@ -341,11 +432,13 @@ class _FeedCardState extends State<_FeedCard>
               ),
             ),
           ),
-          if (media.length > 1)
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
+        ),
+        if (media.length > 1)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: IgnorePointer(
               child: SafeArea(
                 bottom: false,
                 child: Padding(
@@ -362,30 +455,134 @@ class _FeedCardState extends State<_FeedCard>
                 ),
               ),
             ),
-          if (widget.agency != null)
-            Positioned(
-              left: AppSpacing.md,
-              top: media.length > 1 ? AppSpacing.xxl : AppSpacing.md,
+          ),
+        if (widget.agency != null)
+          Positioned(
+            left: AppSpacing.md,
+            top: media.length > 1 ? AppSpacing.xxl : AppSpacing.md,
+            child: IgnorePointer(
               child: SafeArea(
                 bottom: false,
                 child: _AgencyBadge(agency: widget.agency!),
               ),
             ),
-          Positioned(
-            right: AppSpacing.md,
-            bottom: _actionRailBottomOffset,
-            child: Column(
-              children: [
-                _FavoriteButton(
-                  isFavorite: widget.isFavorite,
-                  onTap: widget.onToggleFavorite,
-                ),
-                const SizedBox(height: AppSpacing.md),
-                _ShareButton(onTap: widget.onShare),
-              ],
-            ),
           ),
-        ],
+        Positioned(
+          right: AppSpacing.md,
+          bottom: _actionRailBottomOffset,
+          child: Column(
+            children: [
+              _FavoriteButton(
+                isFavorite: widget.isFavorite,
+                onTap: widget.onToggleFavorite,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              _ShareButton(onTap: widget.onShare),
+            ],
+          ),
+        ),
+        if (_likeBurstPosition != null)
+          _LikeBurst(
+            key: ValueKey(_likeBurstId),
+            position: _likeBurstPosition!,
+            onCompleted: () => setState(() => _likeBurstPosition = null),
+          ),
+      ],
+    );
+  }
+}
+
+/// Grand cœur qui apparaît, rebondit puis s'efface au point du double tap —
+/// retrait automatique via [onCompleted] une fois l'animation terminée.
+class _LikeBurst extends StatefulWidget {
+  const _LikeBurst({
+    required this.position,
+    required this.onCompleted,
+    super.key,
+  });
+
+  final Offset position;
+  final VoidCallback onCompleted;
+
+  @override
+  State<_LikeBurst> createState() => _LikeBurstState();
+}
+
+class _LikeBurstState extends State<_LikeBurst>
+    with SingleTickerProviderStateMixin {
+  static const double _iconSize = 96;
+
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 700),
+  );
+  late final Animation<double> _scale = TweenSequence<double>([
+    TweenSequenceItem(
+      tween: Tween(
+        begin: 0.3,
+        end: 1.2,
+      ).chain(CurveTween(curve: Curves.easeOutBack)),
+      weight: 45,
+    ),
+    TweenSequenceItem(
+      tween: Tween(
+        begin: 1.2,
+        end: 1.0,
+      ).chain(CurveTween(curve: Curves.easeOut)),
+      weight: 20,
+    ),
+    TweenSequenceItem(tween: ConstantTween(1.0), weight: 15),
+  ]).animate(_controller);
+  late final Animation<double> _opacity = TweenSequence<double>([
+    TweenSequenceItem(tween: ConstantTween(1.0), weight: 70),
+    TweenSequenceItem(
+      tween: Tween(
+        begin: 1.0,
+        end: 0.0,
+      ).chain(CurveTween(curve: Curves.easeIn)),
+      weight: 30,
+    ),
+  ]).animate(_controller);
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addStatusListener((status) {
+      if (status == AnimationStatus.completed) widget.onCompleted();
+    });
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      left: widget.position.dx - _iconSize / 2,
+      top: widget.position.dy - _iconSize / 2,
+      child: IgnorePointer(
+        child: AnimatedBuilder(
+          animation: _controller,
+          builder: (context, child) {
+            return Opacity(
+              opacity: _opacity.value,
+              child: Transform.scale(scale: _scale.value, child: child),
+            );
+          },
+          child: const Icon(
+            Icons.favorite,
+            color: Colors.white,
+            size: _iconSize,
+            shadows: [
+              Shadow(color: Colors.black45, blurRadius: 20),
+              Shadow(color: Colors.black26, blurRadius: 4),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -400,19 +597,36 @@ class _StatsRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final style = AppTypography.bodySecondary.copyWith(
       color: Colors.white70,
+      shadows: kOverlayTextShadow,
     );
+    const iconShadows = kOverlayTextShadow;
     return Row(
       children: [
-        const Icon(Icons.square_foot, color: Colors.white70, size: 16),
+        const Icon(
+          Icons.square_foot,
+          color: Colors.white70,
+          size: 16,
+          shadows: iconShadows,
+        ),
         const SizedBox(width: AppSpacing.xs),
         Text('${property.surface.toStringAsFixed(0)} m²', style: style),
         const SizedBox(width: AppSpacing.md),
-        const Icon(Icons.bed_outlined, color: Colors.white70, size: 16),
+        const Icon(
+          Icons.bed_outlined,
+          color: Colors.white70,
+          size: 16,
+          shadows: iconShadows,
+        ),
         const SizedBox(width: AppSpacing.xs),
         Text('${property.bedrooms} ch.', style: style),
         if (property.bathrooms != null) ...[
           const SizedBox(width: AppSpacing.md),
-          const Icon(Icons.bathtub_outlined, color: Colors.white70, size: 16),
+          const Icon(
+            Icons.bathtub_outlined,
+            color: Colors.white70,
+            size: 16,
+            shadows: iconShadows,
+          ),
           const SizedBox(width: AppSpacing.xs),
           Text('${property.bathrooms} SdB', style: style),
         ],
@@ -436,6 +650,7 @@ class _AgencyBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.35),
         borderRadius: BorderRadius.circular(AppRadius.pill),
+        boxShadow: kFloatingButtonShadow,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -475,7 +690,9 @@ class _PhotoIndicator extends StatelessWidget {
     return Row(
       children: List.generate(count, (index) {
         return Expanded(
-          child: Container(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
             height: 3,
             margin: const EdgeInsets.symmetric(horizontal: 2),
             decoration: BoxDecoration(
