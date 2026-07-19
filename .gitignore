@@ -1,0 +1,36 @@
+# Secrets — jamais commités
+.env
+
+# Flutter / Dart
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+*.g.dart
+*.freezed.dart
+
+# l10n généré (regénéré par `flutter gen-l10n`, voir .github/workflows/ci.yml)
+lib/l10n/app_localizations.dart
+lib/l10n/app_localizations_*.dart
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Platform (générés par `flutter create .`)
+android/.gradle/
+android/local.properties
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+**/Flutter/ephemeral/
+**/Pods/
+
+# macOS
+.DS_Store
+._*

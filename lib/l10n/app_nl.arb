@@ -1,0 +1,17 @@
+{
+  "@@locale": "nl",
+  "appName": "House For You",
+  "navDiscover": "Ontdekken",
+  "navSearch": "Zoeken",
+  "navFavorites": "Favorieten",
+  "navProfile": "Profiel",
+  "setupCheckTitle": "Projectconfiguratie",
+  "setupCheckSubtitle": "Stap 0 — setupcontrole",
+  "setupCheckPropertiesLoaded": "{count} fictieve woningen geladen",
+  "setupCheckAgenciesLoaded": "{count} fictieve makelaars geladen",
+  "setupCheckOk": "De setup werkt correct.",
+  "guestFavoritesPrompt": "Log in om je favorieten te bekijken",
+  "guestProfilePrompt": "Log in om je profiel te bekijken",
+  "login": "Inloggen",
+  "signup": "Account aanmaken"
+}

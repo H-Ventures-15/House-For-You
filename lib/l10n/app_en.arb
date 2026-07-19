@@ -1,0 +1,17 @@
+{
+  "@@locale": "en",
+  "appName": "House For You",
+  "navDiscover": "Discover",
+  "navSearch": "Search",
+  "navFavorites": "Favorites",
+  "navProfile": "Profile",
+  "setupCheckTitle": "Project setup",
+  "setupCheckSubtitle": "Step 0 — setup check",
+  "setupCheckPropertiesLoaded": "{count} mock properties loaded",
+  "setupCheckAgenciesLoaded": "{count} mock agencies loaded",
+  "setupCheckOk": "Setup is working correctly.",
+  "guestFavoritesPrompt": "Sign in to view your favorites",
+  "guestProfilePrompt": "Sign in to view your profile",
+  "login": "Log in",
+  "signup": "Sign up"
+}

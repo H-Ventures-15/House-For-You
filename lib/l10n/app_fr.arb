@@ -1,0 +1,26 @@
+{
+  "@@locale": "fr",
+  "appName": "House For You",
+  "@appName": {
+    "description": "Nom de l'application"
+  },
+  "navDiscover": "Découvrir",
+  "navSearch": "Rechercher",
+  "navFavorites": "Favoris",
+  "navProfile": "Profil",
+  "setupCheckTitle": "Configuration du projet",
+  "setupCheckSubtitle": "Étape 0 — vérification du setup",
+  "setupCheckPropertiesLoaded": "{count} biens fictifs chargés",
+  "@setupCheckPropertiesLoaded": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "setupCheckAgenciesLoaded": "{count} agences fictives chargées",
+  "@setupCheckAgenciesLoaded": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "setupCheckOk": "Le setup fonctionne correctement.",
+  "guestFavoritesPrompt": "Connecte-toi pour retrouver tes favoris",
+  "guestProfilePrompt": "Connecte-toi pour accéder à ton profil",
+  "login": "Se connecter",
+  "signup": "Créer un compte"
+}
