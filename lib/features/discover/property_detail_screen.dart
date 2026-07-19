@@ -145,16 +145,29 @@ class _PropertyDetailScreenState extends ConsumerState<PropertyDetailScreen>
     final favoriteIds = ref.watch(favoritesControllerProvider);
 
     return Scaffold(
+      // Transparent : la route est `opaque: false` (voir app_router.dart)
+      // pour que le feed reste peint dessous pendant le swipe de fermeture.
+      // `_DetailBody` porte son propre fond opaque au repos — voir plus bas.
+      backgroundColor: Colors.transparent,
       body: propertyAsync.when(
-        loading: () => const LoadingState(),
-        error: (error, stackTrace) => ErrorState(
-          message: 'Impossible de charger ce bien. Réessaie.',
-          onRetry: () =>
-              ref.invalidate(propertyByIdProvider(widget.propertyId)),
+        loading: () => const ColoredBox(
+          color: AppColors.background,
+          child: LoadingState(),
+        ),
+        error: (error, stackTrace) => ColoredBox(
+          color: AppColors.background,
+          child: ErrorState(
+            message: 'Impossible de charger ce bien. Réessaie.',
+            onRetry: () =>
+                ref.invalidate(propertyByIdProvider(widget.propertyId)),
+          ),
         ),
         data: (property) {
           if (property == null) {
-            return const ErrorState(message: 'Ce bien n\'est plus disponible.');
+            return const ColoredBox(
+              color: AppColors.background,
+              child: ErrorState(message: 'Ce bien n\'est plus disponible.'),
+            );
           }
           _trackDetailOpenOnce();
           final agency = agenciesAsync.valueOrNull?[property.agencyId];
@@ -201,131 +214,141 @@ class _DetailBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        CustomScrollView(
-          slivers: [
-            SliverToBoxAdapter(
-              child:
-                  _DetailGallery(media: property.media, height: galleryHeight),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.lg,
-                AppSpacing.xl,
-                AppSpacing.lg,
-                120,
+    // Fond opaque normal au repos. Il vit à l'intérieur du contenu balancé
+    // par `_SwipeToDismiss` : pendant le swipe de fermeture, il s'estompe
+    // avec le reste et laisse transparaître le feed déjà chargé en dessous
+    // — jamais de flash blanc.
+    return ColoredBox(
+      color: AppColors.background,
+      child: Stack(
+        children: [
+          CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: _DetailGallery(
+                  media: property.media,
+                  height: galleryHeight,
+                ),
               ),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  Text(
-                    formatPropertyPrice(property),
-                    style: AppTypography.titleLarge,
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(property.title, style: AppTypography.titleMedium),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    '${propertyTypeLabel(property.propertyType)} · '
-                    '${property.city} (${property.postalCode})',
-                    style: AppTypography.bodySecondary,
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  _DetailStatsRow(property: property),
-                  const Divider(height: AppSpacing.xxl * 2),
-                  _Section(
-                    title: 'Description',
-                    child:
-                        Text(property.description, style: AppTypography.body),
-                  ),
-                  _Section(
-                    title: 'Localisation',
-                    child: _LocationBlock(property: property),
-                  ),
-                  _Section(
-                    title: 'Caractéristiques',
-                    child: _FeatureTags(tags: _characteristicTags(property)),
-                  ),
-                  if (property.features.isNotEmpty)
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  AppSpacing.xl,
+                  AppSpacing.lg,
+                  120,
+                ),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    Text(
+                      formatPropertyPrice(property),
+                      style: AppTypography.titleLarge,
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(property.title, style: AppTypography.titleMedium),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      '${propertyTypeLabel(property.propertyType)} · '
+                      '${property.city} (${property.postalCode})',
+                      style: AppTypography.bodySecondary,
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    _DetailStatsRow(property: property),
+                    const Divider(height: AppSpacing.xxl * 2),
                     _Section(
-                      title: 'Équipements',
-                      child: _FeatureTags(
-                        tags: property.features
-                            .map((f) => '${f.featureKey}: ${f.featureValue}')
-                            .toList(),
+                      title: 'Description',
+                      child:
+                          Text(property.description, style: AppTypography.body),
+                    ),
+                    _Section(
+                      title: 'Localisation',
+                      child: _LocationBlock(property: property),
+                    ),
+                    _Section(
+                      title: 'Caractéristiques',
+                      child: _FeatureTags(tags: _characteristicTags(property)),
+                    ),
+                    if (property.features.isNotEmpty)
+                      _Section(
+                        title: 'Équipements',
+                        child: _FeatureTags(
+                          tags: property.features
+                              .map((f) => '${f.featureKey}: ${f.featureValue}')
+                              .toList(),
+                        ),
                       ),
-                    ),
-                  _Section(
-                    title: 'Consommation énergétique',
-                    child: _EnergyBadge(score: property.energyScore),
-                  ),
-                  if (agency != null)
                     _Section(
-                      title: 'Agence',
-                      child: _AgencyBlock(agency: agency!),
+                      title: 'Consommation énergétique',
+                      child: _EnergyBadge(score: property.energyScore),
                     ),
-                ]),
+                    if (agency != null)
+                      _Section(
+                        title: 'Agence',
+                        child: _AgencyBlock(agency: agency!),
+                      ),
+                  ]),
+                ),
               ),
-            ),
-          ],
-        ),
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          child: SafeArea(
-            bottom: false,
-            child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _RoundIconButton(
-                    icon: Icons.arrow_back_rounded,
-                    onTap: () => context.pop(),
-                  ),
-                  Row(
-                    children: [
-                      _RoundIconButton(
-                        icon:
-                            isFavorite ? Icons.favorite : Icons.favorite_border,
-                        iconColor: isFavorite ? AppColors.error : null,
-                        onTap: onToggleFavorite,
-                      ),
-                      const SizedBox(width: AppSpacing.sm),
-                      _RoundIconButton(
-                        icon: Icons.share_outlined,
-                        onTap: onShare,
-                      ),
-                    ],
-                  ),
-                ],
+            ],
+          ),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _RoundIconButton(
+                      icon: Icons.arrow_back_rounded,
+                      onTap: () => context.pop(),
+                    ),
+                    Row(
+                      children: [
+                        _RoundIconButton(
+                          icon: isFavorite
+                              ? Icons.favorite
+                              : Icons.favorite_border,
+                          iconColor: isFavorite ? AppColors.error : null,
+                          onTap: onToggleFavorite,
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        _RoundIconButton(
+                          icon: Icons.share_outlined,
+                          onTap: onShare,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: SafeArea(
-            top: false,
-            child: Container(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              decoration: const BoxDecoration(
-                color: AppColors.surface,
-                border: Border(top: BorderSide(color: AppColors.border)),
-              ),
-              child: PhButton(
-                label: 'Contacter l\'agence',
-                icon: Icons.chat_bubble_outline_rounded,
-                expand: true,
-                onPressed: onContact,
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: SafeArea(
+              top: false,
+              child: Container(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                decoration: const BoxDecoration(
+                  color: AppColors.surface,
+                  border: Border(top: BorderSide(color: AppColors.border)),
+                ),
+                child: PhButton(
+                  label: 'Contacter l\'agence',
+                  icon: Icons.chat_bubble_outline_rounded,
+                  expand: true,
+                  onPressed: onContact,
+                ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 

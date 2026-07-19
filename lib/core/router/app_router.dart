@@ -26,6 +26,12 @@ final GoRouter appRouter = GoRouter(
         final id = state.pathParameters['id']!;
         return CustomTransitionPage(
           key: state.pageKey,
+          // Non opaque : le feed reste peint sous la fiche pendant toute la
+          // transition et le swipe de fermeture interactif (voir
+          // `PropertyDetailScreen`/`_SwipeToDismiss`) — jamais de flash
+          // blanc, la carte déjà chargée du feed transparaît directement.
+          opaque: false,
+          barrierColor: Colors.transparent,
           child: PropertyDetailScreen(propertyId: id),
           transitionDuration: const Duration(milliseconds: 320),
           reverseTransitionDuration: const Duration(milliseconds: 260),

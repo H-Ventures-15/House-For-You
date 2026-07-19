@@ -132,15 +132,48 @@ void main() {
     },
   );
 
-  testWidgets('le bouton filtres affiche un message', (tester) async {
+  testWidgets('le bouton filtres ouvre la feuille de filtres', (
+    tester,
+  ) async {
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(_wrap(const DiscoverScreen()));
       await tester.pumpAndSettle();
 
       await tester.tap(find.byTooltip('Filtres'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Filtres'), findsOneWidget);
+      expect(find.text('Localisation'), findsOneWidget);
+      expect(find.text('Type de transaction'), findsOneWidget);
+      expect(find.textContaining('Afficher'), findsOneWidget);
+    });
+  });
+
+  testWidgets('choisir un filtre met à jour le résumé de la barre', (
+    tester,
+  ) async {
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(_wrap(const DiscoverScreen()));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Toute la Belgique · Tous types · Budget libre'),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byTooltip('Filtres'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Louer'));
       await tester.pump();
 
-      expect(find.text('Filtres bientôt disponibles.'), findsOneWidget);
+      await tester.tap(find.byTooltip('Fermer'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Toute la Belgique · Tous types · Budget libre'),
+        findsNothing,
+      );
     });
   });
 

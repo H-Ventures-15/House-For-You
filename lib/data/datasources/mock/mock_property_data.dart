@@ -132,6 +132,14 @@ final List<Property> mockProperties = [
     locationPrecision: LocationPrecision.cityOnly,
     status: PropertyStatus.published,
     media: _photos('prop-3', 3),
+    features: const [
+      PropertyFeature(
+        id: 'f5',
+        propertyId: 'prop-3',
+        featureKey: 'cuisine_equipee',
+        featureValue: 'oui',
+      ),
+    ],
     publishedAt: DateTime(2026, 6, 10),
     createdAt: DateTime(2026, 6, 8),
     updatedAt: DateTime(2026, 6, 10),
@@ -160,6 +168,20 @@ final List<Property> mockProperties = [
     locationPrecision: LocationPrecision.approximate,
     status: PropertyStatus.published,
     media: _photos('prop-4', 6),
+    features: const [
+      PropertyFeature(
+        id: 'f6',
+        propertyId: 'prop-4',
+        featureKey: 'vue_degagee',
+        featureValue: 'oui',
+      ),
+      PropertyFeature(
+        id: 'f7',
+        propertyId: 'prop-4',
+        featureKey: 'climatisation',
+        featureValue: 'oui',
+      ),
+    ],
     publishedAt: DateTime(2026, 4, 20),
     createdAt: DateTime(2026, 4, 15),
     updatedAt: DateTime(2026, 4, 20),
@@ -214,6 +236,20 @@ final List<Property> mockProperties = [
     locationPrecision: LocationPrecision.approximate,
     status: PropertyStatus.published,
     media: _photos('prop-6', 4),
+    features: const [
+      PropertyFeature(
+        id: 'f8',
+        propertyId: 'prop-6',
+        featureKey: 'parking',
+        featureValue: 'oui',
+      ),
+      PropertyFeature(
+        id: 'f9',
+        propertyId: 'prop-6',
+        featureKey: 'panneaux_photovoltaiques',
+        featureValue: 'oui',
+      ),
+    ],
     publishedAt: DateTime(2026, 6, 25),
     createdAt: DateTime(2026, 6, 20),
     updatedAt: DateTime(2026, 6, 25),
@@ -241,6 +277,14 @@ final List<Property> mockProperties = [
     locationPrecision: LocationPrecision.approximate,
     status: PropertyStatus.published,
     media: _photos('prop-7', 4),
+    features: const [
+      PropertyFeature(
+        id: 'f10',
+        propertyId: 'prop-7',
+        featureKey: 'borne_electrique',
+        featureValue: 'oui',
+      ),
+    ],
     publishedAt: DateTime(2026, 7, 2),
     createdAt: DateTime(2026, 6, 28),
     updatedAt: DateTime(2026, 7, 2),
@@ -271,6 +315,20 @@ final List<Property> mockProperties = [
     locationPrecision: LocationPrecision.approximate,
     status: PropertyStatus.published,
     media: _photos('prop-8', 5),
+    features: const [
+      PropertyFeature(
+        id: 'f11',
+        propertyId: 'prop-8',
+        featureKey: 'cheminee',
+        featureValue: 'oui',
+      ),
+      PropertyFeature(
+        id: 'f12',
+        propertyId: 'prop-8',
+        featureKey: 'bureau',
+        featureValue: 'oui',
+      ),
+    ],
     publishedAt: DateTime(2026, 5, 30),
     createdAt: DateTime(2026, 5, 25),
     updatedAt: DateTime(2026, 5, 30),
@@ -298,6 +356,14 @@ final List<Property> mockProperties = [
     locationPrecision: LocationPrecision.cityOnly,
     status: PropertyStatus.published,
     media: _photos('prop-9', 3),
+    features: const [
+      PropertyFeature(
+        id: 'f13',
+        propertyId: 'prop-9',
+        featureKey: 'dressing',
+        featureValue: 'oui',
+      ),
+    ],
     publishedAt: DateTime(2026, 7, 10),
     createdAt: DateTime(2026, 7, 8),
     updatedAt: DateTime(2026, 7, 10),
@@ -362,6 +428,20 @@ final List<Property> mockProperties = [
     locationPrecision: LocationPrecision.approximate,
     status: PropertyStatus.published,
     media: _photos('prop-11', 4),
+    features: const [
+      PropertyFeature(
+        id: 'f14',
+        propertyId: 'prop-11',
+        featureKey: 'parking',
+        featureValue: 'oui',
+      ),
+      PropertyFeature(
+        id: 'f15',
+        propertyId: 'prop-11',
+        featureKey: 'pmr',
+        featureValue: 'oui',
+      ),
+    ],
     publishedAt: DateTime(2026, 7, 14),
     createdAt: DateTime(2026, 7, 12),
     updatedAt: DateTime(2026, 7, 14),
@@ -390,6 +470,14 @@ final List<Property> mockProperties = [
     locationPrecision: LocationPrecision.approximate,
     status: PropertyStatus.published,
     media: _photos('prop-12', 3),
+    features: const [
+      PropertyFeature(
+        id: 'f16',
+        propertyId: 'prop-12',
+        featureKey: 'pompe_a_chaleur',
+        featureValue: 'oui',
+      ),
+    ],
     publishedAt: DateTime(2026, 7, 5),
     createdAt: DateTime(2026, 7, 1),
     updatedAt: DateTime(2026, 7, 5),

@@ -16,6 +16,9 @@ import '../../data/models/property_event.dart';
 import '../../data/providers/favorites_controller.dart';
 import '../../data/providers/feed_providers.dart';
 import '../../data/providers/repository_providers.dart';
+import '../../data/providers/search_filters_controller.dart';
+import 'filters/filter_options.dart';
+import 'filters/filters_sheet.dart';
 import 'saved_searches_sheet.dart';
 
 /// Onglet Découvrir — feed vertical plein écran, un bien par page. Le swipe
@@ -29,6 +32,7 @@ class DiscoverScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final feedAsync = ref.watch(feedPropertiesProvider);
     final agenciesAsync = ref.watch(agenciesByIdProvider);
+    final filters = ref.watch(searchFiltersControllerProvider);
 
     return Scaffold(
       body: feedAsync.when(
@@ -43,8 +47,19 @@ class DiscoverScreen extends ConsumerWidget {
               message: 'Aucun bien à afficher pour le moment.',
             );
           }
+          final filtered = filters.isEmpty
+              ? properties
+              : properties.where(filters.matches).toList();
+          if (filtered.isEmpty) {
+            return ErrorState(
+              message: 'Aucun bien ne correspond à ces filtres. '
+                  'Essaie d\'en retirer quelques-uns.',
+              onRetry: () =>
+                  ref.read(searchFiltersControllerProvider.notifier).reset(),
+            );
+          }
           return _DiscoverFeed(
-            properties: properties,
+            properties: filtered,
             agenciesById: agenciesAsync.valueOrNull ?? const {},
           );
         },
@@ -80,7 +95,10 @@ class _DiscoverFeedState extends ConsumerState<_DiscoverFeed> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _trackImpression(0));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _trackImpression(0);
+      _precacheNeighbors(0);
+    });
     _controller.addListener(_onScroll);
   }
 
@@ -105,8 +123,23 @@ class _DiscoverFeedState extends ConsumerState<_DiscoverFeed> {
 
   void _onPageChanged(int index) {
     _trackImpression(index);
+    _precacheNeighbors(index);
     _barVisibility.value = index > _lastSettledIndex ? 0 : 1;
     _lastSettledIndex = index;
+  }
+
+  /// Précharge les photos du bien précédent et du bien suivant pour que le
+  /// swipe vertical paraisse instantané (voir `Image.network` + le cache
+  /// d'images Flutter, qui réutilise cette précharge sans nouvelle requête
+  /// une fois la carte réellement construite).
+  void _precacheNeighbors(int index) {
+    for (final neighbor in [index - 1, index + 1]) {
+      if (neighbor < 0 || neighbor >= widget.properties.length) continue;
+      for (final media in widget.properties[neighbor].media.take(2)) {
+        final url = media.thumbnailUrl ?? media.storagePath;
+        precacheImage(NetworkImage(url), context);
+      }
+    }
   }
 
   void _trackImpression(int index) {
@@ -157,19 +190,24 @@ class _DiscoverFeedState extends ConsumerState<_DiscoverFeed> {
   }
 
   void _handleFilters() {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        const SnackBar(content: Text('Filtres bientôt disponibles.')),
-      );
+    showFiltersSheet(context);
   }
 
   @override
   Widget build(BuildContext context) {
     final favoriteIds = ref.watch(favoritesControllerProvider);
+    final filtersSummary = summarizeFilters(
+      ref.watch(searchFiltersControllerProvider),
+    );
 
     return Stack(
+      fit: StackFit.expand,
       children: [
+        // Fond sombre plutôt que blanc : le léger espace visuel révélé par
+        // l'effet de profondeur entre deux biens ne doit jamais lire comme
+        // un blanc de page, mais comme une immersion continue façon
+        // TikTok/Instagram — jamais de flash blanc pendant le swipe.
+        const ColoredBox(color: Color(0xFF0B0B0C)),
         PageView.builder(
           key: const Key('discover-feed'),
           controller: _controller,
@@ -220,7 +258,7 @@ class _DiscoverFeedState extends ConsumerState<_DiscoverFeed> {
                   );
                 },
                 child: FloatingSearchBar(
-                  summary: 'Toute la Belgique · Tous types · Budget libre',
+                  summary: filtersSummary,
                   onTap: _handleFilters,
                   onFilters: _handleFilters,
                   onSavedSearches: () => showSavedSearchesSheet(context),
