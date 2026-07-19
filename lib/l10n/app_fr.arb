@@ -8,17 +8,10 @@
   "navSearch": "Rechercher",
   "navFavorites": "Favoris",
   "navProfile": "Profil",
-  "setupCheckTitle": "Configuration du projet",
-  "setupCheckSubtitle": "Étape 0 — vérification du setup",
-  "setupCheckPropertiesLoaded": "{count} biens fictifs chargés",
-  "@setupCheckPropertiesLoaded": {
-    "placeholders": { "count": { "type": "int" } }
-  },
-  "setupCheckAgenciesLoaded": "{count} agences fictives chargées",
-  "@setupCheckAgenciesLoaded": {
-    "placeholders": { "count": { "type": "int" } }
-  },
-  "setupCheckOk": "Le setup fonctionne correctement.",
+  "discoverComingSoon": "Le fil vertical des biens arrivera bientôt ici.",
+  "searchComingSoon": "La recherche guidée sera bientôt disponible ici.",
+  "favoritesComingSoon": "Retrouve ici les biens que tu auras sauvegardés.",
+  "profileComingSoon": "Gère ton compte et tes préférences depuis cet onglet.",
   "guestFavoritesPrompt": "Connecte-toi pour retrouver tes favoris",
   "guestProfilePrompt": "Connecte-toi pour accéder à ton profil",
   "login": "Se connecter",
