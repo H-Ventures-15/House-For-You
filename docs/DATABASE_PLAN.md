@@ -2,7 +2,7 @@
 
 > **Statut : vivant, non implémenté.** Ce document prépare intégralement le schéma Supabase (Postgres) qui sera mis en place à l'étape 10 ([ROADMAP.md](ROADMAP.md)). **Aucune migration réelle n'existe encore** — toutes les données de l'application actuelle sont mock (`lib/data/datasources/mock/`). Ce document doit rester synchronisé avec les modèles Dart (`lib/data/models/`) : tout nouveau champ ajouté à un modèle doit apparaître ici, et réciproquement.
 >
-> Dernière mise à jour : 2026-07-20.
+> Dernière mise à jour : 2026-07-20 (sous-étape 2.3 — recherches sauvegardées mock complètes).
 
 ---
 
@@ -235,7 +235,9 @@ Modèle Dart : `PropertyEvent`. Côté app, `AnalyticsService` (mock aujourd'hui
 | `notify_on_new_match` | `boolean` | défaut `false` | base pour les futures alertes, voir [BACKLOG.md](BACKLOG.md) |
 | `created_at` | `timestamptz` | défaut `now()` | |
 
-**Ajouté par anticipation** : la fonctionnalité « recherches enregistrées » existe déjà côté app en mock statique (`lib/data/models/saved_search.dart`, `mock_saved_searches.dart`) et sera nécessairement persistée à un moment donné. Ce n'était pas dans le schéma v3 d'origine — ajout documenté ici plutôt que découvert au moment de la migration.
+**Ajouté par anticipation** : la fonctionnalité « recherches enregistrées » existe côté app depuis la sous-étape 2.3 avec un CRUD mock complet en mémoire (`SavedSearchesRepository`/`MockSavedSearchesDataSource`, `id`/`label`/`filters`/`createdAt` — voir [TECH_ARCHITECTURE.md](TECH_ARCHITECTURE.md) section 5 bis) et sera nécessairement persistée à un moment donné. Ce n'était pas dans le schéma v3 d'origine — ajout documenté ici plutôt que découvert au moment de la migration. `notify_on_new_match` n'a pas encore d'équivalent côté app (aucune UI d'alerte au MVP, voir [BACKLOG.md](BACKLOG.md)).
+
+**Écart à trancher avant migration** : `SearchFilters` (`lib/data/models/search_filters.dart`) n'a pas de `toJson`/`fromJson` — conforme à ADR-010 (modèles manuels, pas de génération de code) tant qu'aucune persistance ne l'exige. La colonne `filters jsonb` en dépendra directement : il faudra écrire cette sérialisation manuelle avant de brancher `SavedSearchesRepository` sur Supabase (étape 10) — ajouté à la liste section 9.
 
 ## 4. Index
 
@@ -300,6 +302,7 @@ Modèle Dart : `PropertyEvent`. Côté app, `AnalyticsService` (mock aujourd'hui
 2. Liste de clés autorisées pour `property_features.feature_key` — texte libre aujourd'hui, à contraindre (enum ou table de référence) une fois la liste de caractéristiques stabilisée côté produit.
 3. Comportement exact de `saved_searches.notify_on_new_match` (alertes) — dépend de l'infrastructure de notifications push, non choisie (voir [BACKLOG.md](BACKLOG.md)).
 4. Fournisseur vidéo définitif (Cloudflare Stream vs Mux) — voir [BACKLOG.md](BACKLOG.md).
+5. Sérialisation `toJson`/`fromJson` de `SearchFilters` — nécessaire pour la colonne `saved_searches.filters jsonb`, absente aujourd'hui (voir note section 3.12 et ADR-010).
 
 ---
 

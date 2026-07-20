@@ -2,7 +2,7 @@
 
 > **Statut : vivant.** Ce document est la Bible produit de House For You. Toute fonctionnalité validée (code mergé sur `main`, testée) doit y être décrite avant le commit qui la clôt. Si ce document et le code divergent, c'est une anomalie à corriger immédiatement — pas une des deux sources qui « a raison ».
 >
-> Dernière mise à jour : 2026-07-20 (fin de la sous-étape 2.2 — voir [ROADMAP.md](ROADMAP.md)).
+> Dernière mise à jour : 2026-07-20 (fin de la sous-étape 2.3 — voir [ROADMAP.md](ROADMAP.md)).
 
 ---
 
@@ -138,26 +138,44 @@ Cette séparation stricte des zones de gestes est une décision produit document
 
 Accessible depuis la barre flottante du feed. Feuille plein écran qui monte depuis le bas avec un fond flouté (jamais une nouvelle page — voir `lib/core/widgets/blurred_modal_sheet.dart`).
 
-**Sections, dans l'ordre d'affichage :**
+**Hiérarchie à deux niveaux** (depuis la sous-étape 2.3) — jamais l'impression de remplir un formulaire administratif : les critères principaux sont immédiatement visibles, les critères avancés vivent sous une section repliable.
+
+**Critères principaux, toujours visibles, dans l'ordre d'affichage :**
 
 1. **Localisation** — recherche texte (ville/code postal/province/région) avec suggestions instantanées, puis rayon de recherche (5/10/20/50 km/toute la Belgique).
 2. **Type de transaction** — grandes cartes : Acheter, Louer, Projet neuf.
-3. **Budget** — slider double poignée + saisie manuelle, plage adaptée automatiquement à la transaction (achat vs location).
+3. **Budget** — slider double poignée + saisie manuelle, plage adaptée automatiquement à la transaction (achat vs location) ; changer de transaction réinitialise un budget déjà choisi (les deux échelles n'ont aucun rapport, voir [DECISIONS.md](DECISIONS.md)).
 4. **Type de bien** — grille à icônes, sélection multiple (Maison, Appartement, Villa, Terrain, Projet neuf, Immeuble de rapport, Commerce, Entrepôt, Garage).
-5. **Chambres** / **Salles de bain** — sélection rapide 1+ à 5+.
-6. **Surface habitable** — slider. **Surface du terrain** — slider, affiché seulement si le type de bien sélectionné le justifie (maison/terrain, ou aucun type choisi).
-7. **Certificat énergétique** — sélection multiple A+ à G, couleur conventionnelle par grade.
-8. **Caractéristiques** — grille à icônes, sélection multiple (17 options : jardin, terrasse, piscine, garage, parking, cave, bureau, dressing, cheminée, ascenseur, accès PMR, cuisine équipée, climatisation, pompe à chaleur, panneaux photovoltaïques, borne électrique, vue dégagée).
-9. **État du bien** — Neuf, Excellent, Bon, À rénover, Gros œuvre.
-10. **Date de publication** — Aujourd'hui, 7 jours, 30 jours, Toutes.
-11. **Trier par** — Pertinence, Nouveautés, Prix croissant/décroissant, Surface, Prix/m².
-12. **Ambiance de vie** *(section différenciante, voir ci-dessous)*.
-13. **Recherches enregistrées** — aperçu horizontal + action « Enregistrer cette recherche ».
-14. **Bouton final** — « Afficher N biens », N calculé en direct sur les données mock via `SearchFilters.matches()`.
+5. **Chambres** — sélection rapide 1+ à 5+.
+6. **Recherches enregistrées** — aperçu horizontal (tap = charge les critères), action « Enregistrer cette recherche » (voir 10.2 bis ci-dessous).
+
+**Section « Plus de filtres », repliée par défaut** (badge indiquant le nombre de critères avancés déjà actifs) :
+
+7. **Salles de bain** — sélection rapide 1+ à 5+.
+8. **Surface habitable** — slider. **Surface du terrain** — slider, affiché seulement si le type de bien sélectionné le justifie (maison/terrain, ou aucun type choisi).
+9. **Certificat énergétique** — sélection multiple A+ à G, couleur conventionnelle par grade.
+10. **Caractéristiques** — grille à icônes, sélection multiple (17 options : jardin, terrasse, piscine, garage, parking, cave, bureau, dressing, cheminée, ascenseur, accès PMR, cuisine équipée, climatisation, pompe à chaleur, panneaux photovoltaïques, borne électrique, vue dégagée).
+11. **État du bien** — Neuf, Excellent, Bon, À rénover, Gros œuvre.
+12. **Date de publication** — Aujourd'hui, 7 jours, 30 jours, Toutes.
+13. **Trier par** — Pertinence, Nouveautés, Prix croissant/décroissant, Surface, Prix/m².
+14. **Ambiance de vie** *(section différenciante, voir ci-dessous)*.
+
+**Bouton final** — « Afficher N biens », N calculé en direct sur les données mock via `SearchFilters.matches()`, toujours visible même section avancée dépliée ou clavier ouvert.
 
 Les filtres s'appliquent en direct (pas de distinction brouillon/validé) : chaque sélection met à jour immédiatement le résumé de la barre flottante et le feed sous-jacent. Voir [TECH_ARCHITECTURE.md](TECH_ARCHITECTURE.md) pour l'implémentation (`searchFiltersControllerProvider`).
 
 **Ambiance de vie** — la section qui différencie House For You des portails classiques : explorer par ressenti (🌳 Calme, ☀️ Très lumineux, 👨‍👩‍👧 Familial, 🏙 Centre-ville, 🌲 Proche nature, 💼 Télétravail, 🍷 Haut de gamme, 🎓 Étudiant, 🚉 Proche transports) plutôt que par seuls critères techniques. Purement déclaratif au MVP (aucune donnée mock ne permet encore de la faire influencer les résultats) — vouée à être alimentée par un tag de contenu ou un signal IA (voir section 14).
+
+**Zéro résultat** — si aucun bien ne correspond aux filtres actifs, le feed affiche trois issues concrètes plutôt qu'un message isolé : Modifier les filtres (rouvre la feuille), Réinitialiser les filtres, Charger une recherche sauvegardée (ouvre l'accès rapide de la barre flottante).
+
+### 10.2 bis Recherches sauvegardées
+
+`SavedSearch` porte de vrais critères (`SearchFilters`), pas un simple libellé statique — voir `lib/data/models/saved_search.dart`. Purement local/mémoire à cette étape (`MockSavedSearchesDataSource`, voir [TECH_ARCHITECTURE.md](TECH_ARCHITECTURE.md)), prêt pour la persistance Supabase de l'étape 10 (table `saved_searches`, déjà préparée dans [DATABASE_PLAN.md](DATABASE_PLAN.md)).
+
+- **Enregistrer** — depuis la feuille de filtres, un dialogue propose un nom par défaut pertinent (ex. « Maison à Mons », dérivé des critères actifs), modifiable avant confirmation ; une confirmation visuelle (message) suit l'enregistrement.
+- **Charger** — depuis l'aperçu horizontal de la feuille de filtres (reste ouverte, pour ajuster ensuite) ou depuis l'accès rapide de la barre flottante (ferme immédiatement le panneau — changer de recherche en quelques secondes sans rouvrir tous les filtres).
+- **Renommer** / **Supprimer** — depuis l'accès rapide de la barre flottante uniquement (icônes dédiées sur chaque ligne), avec confirmation avant suppression.
+- Contrairement aux favoris, ces actions ne passent **pas** par la porte d'authentification à cette étape — voir [DECISIONS.md](DECISIONS.md) ADR-016.
 
 ### 10.3 Favoris — état actuel
 
@@ -192,7 +210,7 @@ Voir section 8 ci-dessus et [TECH_ARCHITECTURE.md](TECH_ARCHITECTURE.md) pour le
 
 ## 12. Roadmap fonctionnelle
 
-Voir [ROADMAP.md](ROADMAP.md) pour le détail étape par étape avec statut, dates et commentaires. Résumé de l'état actuel : étapes 0, 1, 2, 2.1 et 2.2 terminées (setup, navigation, feed + fiche + filtres, fluidité, gestes & interactions naturelles). Étape 3 (recherche guidée + résultats) non commencée.
+Voir [ROADMAP.md](ROADMAP.md) pour le détail étape par étape avec statut, dates et commentaires. Résumé de l'état actuel : étapes 0, 1, 2, 2.1, 2.2 et 2.3 terminées (setup, navigation, feed + fiche + filtres, fluidité, gestes & interactions naturelles, hiérarchie des filtres + recherches sauvegardées réelles). Étape 3 (recherche guidée + résultats) non commencée.
 
 ## 13. Contraintes
 

@@ -2,7 +2,7 @@
 
 > **Statut : vivant.** Toutes les idées du projet, classées par priorité. Aucune idée évoquée en cours de développement ne doit être perdue — si elle est écartée d'une étape en cours, elle atterrit ici plutôt que d'être oubliée. Une idée qui passe en développement est déplacée vers [ROADMAP.md](ROADMAP.md) et retirée d'ici.
 >
-> Dernière mise à jour : 2026-07-20.
+> Dernière mise à jour : 2026-07-20 (sous-étape 2.3).
 
 ---
 
@@ -12,7 +12,7 @@
 
 - **Recherche guidée + Résultats** (étape 3, [ROADMAP.md](ROADMAP.md)) — réutiliser `SearchFilters` et la feuille déjà construite plutôt que dupliquer la logique de filtrage.
 - **Authentification réelle** (étape 5) — priorité haute car bloque favoris/leads/profil réels (étapes 6, 7, 8) et la porte d'authentification actuelle est un mock temporaire assumé (voir [DECISIONS.md](DECISIONS.md) ADR-014).
-- **Persistance réelle des recherches enregistrées** — aujourd'hui purement mock statique (`mock_saved_searches.dart`), la table `saved_searches` est déjà préparée dans [DATABASE_PLAN.md](DATABASE_PLAN.md). À implémenter dès que l'authentification existe.
+- **Persistance réelle des recherches enregistrées** — depuis la sous-étape 2.3, un CRUD complet existe (`SavedSearchesRepository`/`MockSavedSearchesDataSource`, en mémoire uniquement, remis à zéro à chaque lancement de l'app) et la table `saved_searches` est déjà préparée dans [DATABASE_PLAN.md](DATABASE_PLAN.md). Reste à brancher `requireAuth()` sur les écritures et à écrire `SearchFilters.toJson`/`fromJson` (voir [DATABASE_PLAN.md](DATABASE_PLAN.md) section 9) au moment de la bascule Supabase.
 - **Décision property_type à 9 valeurs** — la feuille de filtres propose 9 types de bien, le modèle `Property`/la base n'en prévoit que 4. À trancher avant l'étape 10 (voir [DATABASE_PLAN.md](DATABASE_PLAN.md) section 9).
 
 ## Medium Priority

@@ -4,10 +4,12 @@ import '../datasources/mock/mock_agency_datasource.dart';
 import '../datasources/mock/mock_favorites_datasource.dart';
 import '../datasources/mock/mock_leads_datasource.dart';
 import '../datasources/mock/mock_property_datasource.dart';
+import '../datasources/mock/mock_saved_searches_datasource.dart';
 import '../repositories/agency_repository.dart';
 import '../repositories/favorites_repository.dart';
 import '../repositories/leads_repository.dart';
 import '../repositories/property_repository.dart';
+import '../repositories/saved_searches_repository.dart';
 
 /// Point d'injection unique : pour brancher Supabase, ne changer que la
 /// valeur retournée par ces providers (ex. `SupabasePropertyDataSource()`),
@@ -27,6 +29,12 @@ final favoritesRepositoryProvider = Provider<FavoritesRepository>((ref) {
 
 final leadsRepositoryProvider = Provider<LeadsRepository>((ref) {
   return MockLeadsDataSource();
+});
+
+final savedSearchesRepositoryProvider = Provider<SavedSearchesRepository>((
+  ref,
+) {
+  return MockSavedSearchesDataSource();
 });
 
 final analyticsServiceProvider = Provider<AnalyticsService>((ref) {

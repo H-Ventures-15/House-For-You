@@ -4,7 +4,7 @@
 >
 > Légende État : ✅ Terminé · 🟡 En cours · ⬜ À faire
 >
-> Dernière mise à jour : 2026-07-20 (sous-étape 2.2 — gestes & interactions naturelles).
+> Dernière mise à jour : 2026-07-20 (sous-étape 2.3 — recherche, filtres et recherches sauvegardées).
 
 ---
 
@@ -43,8 +43,9 @@
 3. **Système de filtres premium** (commit `4461646`, 2026-07-20) — feuille plein écran type Airbnb (fond flouté), 14 sections (localisation, transaction, budget, type de bien, chambres/salles de bain, surfaces, PEB, caractéristiques, état du bien, date de publication, tri, ambiance de vie, recherches enregistrées, CTA), compteur de résultats réellement calculé sur les données mock, feed réellement filtré.
 4. **Sous-étape 2.1 — Fluidité du swipe façon TikTok** (commit `3c3759c`, 2026-07-20) — voir ci-dessous.
 5. **Sous-étape 2.2 — Gestes & interactions naturelles** (2026-07-20) — voir ci-dessous.
+6. **Sous-étape 2.3 — Recherche, filtres et recherches sauvegardées** (2026-07-20) — voir ci-dessous.
 
-**État** : ✅ Terminé (le périmètre initial et ses extensions successives sont livrés). L'étape avait été formellement close avant l'étape 3 puis rouverte une fois (sous-étape 2.2), les deux fois à la demande explicite d'Hugo — cohérent avec la règle « une seule étape à la fois » de [CLAUDE.md](../CLAUDE.md) puisqu'aucune extension n'a été anticipée sans validation.
+**État** : ✅ Terminé (le périmètre initial et ses extensions successives sont livrés). L'étape avait été formellement close avant l'étape 3 puis rouverte deux fois (sous-étapes 2.2 et 2.3), à chaque fois à la demande explicite d'Hugo — cohérent avec la règle « une seule étape à la fois » de [CLAUDE.md](../CLAUDE.md) puisqu'aucune extension n'a été anticipée sans validation.
 **Date** : 2026-07-19 → 2026-07-20
 **Commentaires** : deux bugs réels découverts et corrigés en cours d'étape (documentés dans les commits et [DECISIONS.md](DECISIONS.md)) — `PageView` du feed sans `scrollDirection: Axis.vertical` explicite, et feuille de filtres sans ancêtre `Material` (cassait `TextField`/`InkWell`). Les deux ont été détectés par les tests avant merge.
 
@@ -71,6 +72,21 @@
 **État** : ✅ Terminé
 **Date** : 2026-07-20
 **Commentaires** : 5 tests ajoutés (masquage/restauration du chrome et de la barre flottante, non-déclenchement du favori/de l'ouverture de fiche pendant l'appui long, labels sémantiques, scroll vertical sans fermeture accidentelle de la fiche) — 30 tests au total désormais (voir [TECH_ARCHITECTURE.md](TECH_ARCHITECTURE.md) section 11). Aucune régression sur la fluidité de la sous-étape 2.1 (`SnappyPageScrollPhysics`, `RepaintBoundary`, `AutomaticKeepAliveClientMixin`, précache) — code non touché, tests correspondants toujours au vert.
+
+### Sous-étape 2.3 — Recherche, filtres et recherches sauvegardées
+
+**Objectif** : un système de recherche simple visuellement mais puissant dans son fonctionnement — hiérarchie claire des filtres, recherches sauvegardées réellement fonctionnelles (sauvegarde/chargement/renommage/suppression), aucun cul-de-sac en cas de zéro résultat.
+
+**Description** (désignée « Sprint 2.4 » dans la demande d'Hugo — numérotée ici comme sous-étape de l'Étape 2, dans la continuité des sous-étapes 2.1/2.2) : le système de filtres complet (barre flottante, feuille plein écran à 14 sections, compteur de résultats réel) existait déjà depuis l'étape 2 initiale — ce sprint a comblé les écarts réels entre la demande et l'existant :
+- **Hiérarchie des filtres** — seuls les critères principaux (localisation + rayon, type de transaction, budget, type de bien, chambres) restent immédiatement visibles à l'ouverture ; les critères avancés (salles de bain, surfaces, PEB, caractéristiques, état du bien, date de publication, tri, ambiance de vie) vivent sous une section repliable « Plus de filtres » avec badge de comptage (voir [UX_RULES.md](UX_RULES.md) section 9 bis).
+- **Recherches sauvegardées réelles** — `SavedSearch` porte désormais de vrais `SearchFilters` (plus un simple libellé statique), avec `SavedSearchesRepository`/`MockSavedSearchesDataSource`/`SavedSearchesController` suivant le pattern déjà établi (ADR-011). Enregistrer propose un nom par défaut pertinent (modifiable), confirme visuellement ; charger, renommer et supprimer sont tous fonctionnels, depuis la feuille de filtres et depuis l'accès rapide de la barre flottante.
+- **Incompatibilité budget/transaction** — changer de type de transaction (achat ↔ location) réinitialise un budget déjà choisi, les deux échelles de prix n'ayant aucun rapport.
+- **État "zéro résultat" enrichi** — trois issues concrètes (Modifier les filtres, Réinitialiser, Charger une recherche sauvegardée) plutôt qu'un message avec un unique bouton.
+- **Accessibilité** — labels sémantiques (`selected`/`button`) sur les contrôles de sélection (puces, cartes, grilles à icônes), jamais la couleur seule pour signaler un état sélectionné.
+
+**État** : ✅ Terminé
+**Date** : 2026-07-20
+**Commentaires** : 9 tests ajoutés dans deux nouveaux fichiers (`test/filters_sheet_test.dart`, `test/saved_searches_sheet_test.dart`) — 39 tests au total désormais (voir [TECH_ARCHITECTURE.md](TECH_ARCHITECTURE.md) section 11). Aucune régression sur les Sprints 2.2/2.3 (gestes, fluidité) — fichiers concernés non modifiés, tests correspondants toujours au vert. Décision produit : les recherches sauvegardées ne passent volontairement pas par `requireAuth()` à cette étape (voir [DECISIONS.md](DECISIONS.md) ADR-016).
 
 ---
 

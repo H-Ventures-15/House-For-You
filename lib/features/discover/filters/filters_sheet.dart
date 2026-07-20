@@ -5,12 +5,14 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/blurred_modal_sheet.dart';
-import '../../../data/datasources/mock/mock_saved_searches.dart';
 import '../../../data/models/property.dart';
+import '../../../data/models/saved_search.dart';
 import '../../../data/models/search_filters.dart';
+import '../../../data/providers/saved_searches_controller.dart';
 import '../../../data/providers/search_filters_controller.dart';
 import 'filter_options.dart';
 import 'filter_widgets.dart';
+import 'saved_search_name_dialog.dart';
 
 /// Feuille de filtres plein écran — monte depuis le bas avec un fond
 /// flouté (voir `showBlurredModalSheet`), jamais une nouvelle page. Les
@@ -44,6 +46,12 @@ class _FiltersSheetState extends ConsumerState<FiltersSheet> {
   final FocusNode _locationFocusNode = FocusNode();
   bool _locationFieldFocused = false;
 
+  /// Filtres avancés repliés par défaut — seuls les critères principaux
+  /// (localisation, transaction, budget, type de bien, chambres) sont
+  /// immédiatement visibles, pour ne jamais donner l'impression de remplir
+  /// un formulaire administratif (voir UX_RULES.md section 9 bis).
+  bool _showMoreFilters = false;
+
   @override
   void initState() {
     super.initState();
@@ -67,6 +75,8 @@ class _FiltersSheetState extends ConsumerState<FiltersSheet> {
   Widget build(BuildContext context) {
     final filters = ref.watch(searchFiltersControllerProvider);
     final count = ref.watch(filteredPropertyCountProvider);
+    final savedSearches =
+        ref.watch(savedSearchesControllerProvider).valueOrNull ?? const [];
 
     return AnimatedPadding(
       duration: const Duration(milliseconds: 180),
@@ -99,6 +109,9 @@ class _FiltersSheetState extends ConsumerState<FiltersSheet> {
                     AppSpacing.xxl,
                   ),
                   children: [
+                    // --- Filtres principaux : toujours visibles, jamais
+                    // noyés parmi les critères avancés (voir UX_RULES.md
+                    // section 9 bis).
                     _buildLocationSection(filters),
                     if (_locationFieldFocused &&
                         _locationController.text.isNotEmpty)
@@ -112,27 +125,44 @@ class _FiltersSheetState extends ConsumerState<FiltersSheet> {
                     _sectionDivider(),
                     _buildPropertyTypeSection(filters),
                     _sectionDivider(),
-                    _buildRoomsSection(filters),
+                    _buildBedroomsSection(filters),
                     _sectionDivider(),
-                    _buildSurfaceSection(filters),
-                    if (_showsLandSurface(filters)) ...[
-                      const SizedBox(height: AppSpacing.xl),
-                      _buildLandSurfaceSection(filters),
-                    ],
+                    _buildSavedSearchesSection(filters, savedSearches),
                     _sectionDivider(),
-                    _buildEnergySection(filters),
-                    _sectionDivider(),
-                    _buildCharacteristicsSection(filters),
-                    _sectionDivider(),
-                    _buildConditionSection(filters),
-                    _sectionDivider(),
-                    _buildPublicationSection(filters),
-                    _sectionDivider(),
-                    _buildSortSection(filters),
-                    _sectionDivider(),
-                    _buildAmbianceSection(filters),
-                    _sectionDivider(),
-                    _buildSavedSearchesSection(),
+                    // --- Critères avancés : repliés par défaut.
+                    _buildMoreFiltersToggle(filters),
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOut,
+                      alignment: Alignment.topCenter,
+                      child: !_showMoreFilters
+                          ? const SizedBox(width: double.infinity)
+                          : Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: AppSpacing.xl),
+                                _buildBathroomsSection(filters),
+                                _sectionDivider(),
+                                _buildSurfaceSection(filters),
+                                if (_showsLandSurface(filters)) ...[
+                                  const SizedBox(height: AppSpacing.xl),
+                                  _buildLandSurfaceSection(filters),
+                                ],
+                                _sectionDivider(),
+                                _buildEnergySection(filters),
+                                _sectionDivider(),
+                                _buildCharacteristicsSection(filters),
+                                _sectionDivider(),
+                                _buildConditionSection(filters),
+                                _sectionDivider(),
+                                _buildPublicationSection(filters),
+                                _sectionDivider(),
+                                _buildSortSection(filters),
+                                _sectionDivider(),
+                                _buildAmbianceSection(filters),
+                              ],
+                            ),
+                    ),
                   ],
                 ),
               ),
@@ -160,6 +190,80 @@ class _FiltersSheetState extends ConsumerState<FiltersSheet> {
         filters.propertyTypes.contains(PropertyType.land);
   }
 
+  /// Nombre de critères avancés actifs (tout ce qui vit sous "Plus de
+  /// filtres") — affiché en badge quand la section est repliée, pour que
+  /// l'utilisateur ne perde jamais de vue qu'un critère avancé est actif
+  /// même sans la déplier.
+  int _advancedFilterCount(SearchFilters filters) {
+    var count = 0;
+    if (filters.minBathrooms != null) count++;
+    if (filters.minSurface != null || filters.maxSurface != null) count++;
+    if (filters.minLandSurface != null || filters.maxLandSurface != null) {
+      count++;
+    }
+    if (filters.energyScores.isNotEmpty) count++;
+    if (filters.characteristics.isNotEmpty) count++;
+    if (filters.condition != null) count++;
+    if (filters.publicationRecency != null) count++;
+    if (filters.sortOption != SortOption.relevance) count++;
+    if (filters.ambiances.isNotEmpty) count++;
+    return count;
+  }
+
+  Widget _buildMoreFiltersToggle(SearchFilters filters) {
+    final advancedCount = _advancedFilterCount(filters);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        onTap: () => setState(() => _showMoreFilters = !_showMoreFilters),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+          child: Row(
+            children: [
+              Text(
+                'Plus de filtres',
+                style: AppTypography.body.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
+                ),
+              ),
+              if (advancedCount > 0) ...[
+                const SizedBox(width: AppSpacing.sm),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.sm,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(AppRadius.pill),
+                  ),
+                  child: Text(
+                    '$advancedCount',
+                    style: AppTypography.caption.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+              const Spacer(),
+              AnimatedRotation(
+                duration: const Duration(milliseconds: 220),
+                turns: _showMoreFilters ? 0.5 : 0,
+                child: const Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: AppColors.primary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   // --- Localisation ---------------------------------------------------
 
   Widget _buildLocationSection(SearchFilters filters) {
@@ -177,6 +281,7 @@ class _FiltersSheetState extends ConsumerState<FiltersSheet> {
             border: Border.all(color: AppColors.border),
           ),
           child: TextField(
+            key: const Key('filters-location-field'),
             controller: _locationController,
             focusNode: _locationFocusNode,
             textInputAction: TextInputAction.search,
@@ -291,9 +396,24 @@ class _FiltersSheetState extends ConsumerState<FiltersSheet> {
             label: option.label,
             subtitle: option.subtitle,
             selected: filters.transactionType == option.value,
-            onTap: () => _updateFilters(
-              (f) => f.copyWith(transactionType: () => option.value),
-            ),
+            onTap: () {
+              final changingTransaction =
+                  filters.transactionType != option.value;
+              _updateFilters(
+                (f) => f.copyWith(
+                  transactionType: () => option.value,
+                  // Achat et location vivent sur des échelles de prix sans
+                  // rapport (ex. 350 000 € vs 700 €/mois) — garder l'ancien
+                  // budget au changement de transaction produirait un
+                  // filtre incompatible avec la nouvelle échelle (voir
+                  // UX_RULES.md section 17, "filtres incompatibles").
+                  // Un simple re-tap de la même option ne doit en revanche
+                  // jamais effacer un budget déjà choisi.
+                  budgetMin: changingTransaction ? () => null : null,
+                  budgetMax: changingTransaction ? () => null : null,
+                ),
+              );
+            },
           ),
           if (option != transactionOptions.last)
             const SizedBox(height: AppSpacing.sm),
@@ -366,9 +486,9 @@ class _FiltersSheetState extends ConsumerState<FiltersSheet> {
     );
   }
 
-  // --- Chambres / salles de bain ---------------------------------------
+  // --- Chambres (principal) / salles de bain (avancé) -------------------
 
-  Widget _buildRoomsSection(SearchFilters filters) {
+  Widget _buildBedroomsSection(SearchFilters filters) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -379,7 +499,14 @@ class _FiltersSheetState extends ConsumerState<FiltersSheet> {
           onChanged: (value) =>
               _updateFilters((f) => f.copyWith(minBedrooms: () => value)),
         ),
-        const SizedBox(height: AppSpacing.xl),
+      ],
+    );
+  }
+
+  Widget _buildBathroomsSection(SearchFilters filters) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
         const SheetSectionHeader(title: 'Salles de bain'),
         QuickCountSelector(
           options: bathroomQuickOptions,
@@ -615,64 +742,110 @@ class _FiltersSheetState extends ConsumerState<FiltersSheet> {
 
   // --- Recherches enregistrées ------------------------------------------
 
-  Widget _buildSavedSearchesSection() {
+  Widget _buildSavedSearchesSection(
+    SearchFilters filters,
+    List<SavedSearch> savedSearches,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SheetSectionHeader(title: 'Recherches enregistrées'),
-        SizedBox(
-          height: 96,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: mockSavedSearches.length,
-            separatorBuilder: (context, index) =>
-                const SizedBox(width: AppSpacing.sm),
-            itemBuilder: (context, index) {
-              final search = mockSavedSearches[index];
-              return Container(
-                width: 148,
-                padding: const EdgeInsets.all(AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(AppRadius.md),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Icon(search.icon, color: AppColors.primary, size: 20),
-                    Text(
-                      search.label,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.caption.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
+        if (savedSearches.isNotEmpty) ...[
+          SizedBox(
+            height: 96,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: savedSearches.length,
+              separatorBuilder: (context, index) =>
+                  const SizedBox(width: AppSpacing.sm),
+              itemBuilder: (context, index) {
+                final search = savedSearches[index];
+                return Semantics(
+                  button: true,
+                  label: 'Charger la recherche « ${search.label} »',
+                  child: Material(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      onTap: () => _handleLoadSavedSearch(search),
+                      child: Container(
+                        width: 148,
+                        padding: const EdgeInsets.all(AppSpacing.md),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(AppRadius.md),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Icon(
+                              savedSearchIcon(search.filters),
+                              color: AppColors.primary,
+                              size: 20,
+                            ),
+                            Text(
+                              search.label,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTypography.caption.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ],
-                ),
-              );
-            },
+                  ),
+                );
+              },
+            ),
           ),
-        ),
-        const SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: AppSpacing.sm),
+        ],
         TextButton.icon(
-          onPressed: () {
-            ScaffoldMessenger.of(context)
-              ..hideCurrentSnackBar()
-              ..showSnackBar(
-                const SnackBar(
-                  content: Text('Recherche enregistrée (démo).'),
-                ),
-              );
-          },
+          onPressed: () => _handleSaveSearch(filters),
           icon: const Icon(Icons.bookmark_add_outlined, size: 18),
           label: const Text('Enregistrer cette recherche'),
         ),
       ],
     );
+  }
+
+  void _handleLoadSavedSearch(SavedSearch search) {
+    ref.read(searchFiltersControllerProvider.notifier).update(
+          (_) => search.filters,
+        );
+    _locationController.text = search.filters.city ?? '';
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text('« ${search.label} » chargée.')));
+  }
+
+  Future<void> _handleSaveSearch(SearchFilters filters) async {
+    final defaultName = defaultSavedSearchName(filters);
+    final name = await promptSavedSearchName(
+      context: context,
+      title: 'Enregistrer cette recherche',
+      initialValue: defaultName,
+    );
+    // `null` = dialogue annulé ; une saisie vide retombe sur le nom par
+    // défaut plutôt que de créer une recherche sans nom (voir UX_RULES.md
+    // section 17, "recherche sans nom").
+    if (name == null) return;
+    final finalName = name.trim().isEmpty ? defaultName : name.trim();
+    await ref.read(savedSearchesControllerProvider.notifier).save(
+          finalName,
+          filters,
+        );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text('« $finalName » enregistrée.')),
+      );
   }
 }
 

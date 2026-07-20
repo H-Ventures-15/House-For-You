@@ -5,10 +5,13 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../core/auth/auth_guard.dart';
 import '../../core/services/session_id.dart';
+import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../core/theme/app_typography.dart';
 import '../../core/widgets/error_state.dart';
 import '../../core/widgets/floating_search_bar.dart';
 import '../../core/widgets/loading_state.dart';
+import '../../core/widgets/ph_button.dart';
 import '../../core/widgets/property_card.dart';
 import '../../core/widgets/snappy_page_physics.dart';
 import '../../data/models/agency.dart';
@@ -52,18 +55,73 @@ class DiscoverScreen extends ConsumerWidget {
               ? properties
               : properties.where(filters.matches).toList();
           if (filtered.isEmpty) {
-            return ErrorState(
-              message: 'Aucun bien ne correspond à ces filtres. '
-                  'Essaie d\'en retirer quelques-uns.',
-              onRetry: () =>
-                  ref.read(searchFiltersControllerProvider.notifier).reset(),
-            );
+            return const _NoFilteredResults();
           }
           return _DiscoverFeed(
             properties: filtered,
             agenciesById: agenciesAsync.valueOrNull ?? const {},
           );
         },
+      ),
+    );
+  }
+}
+
+/// État "zéro résultat" — jamais un simple message avec un unique bouton
+/// (voir UX_RULES.md section 17) : trois issues concrètes pour ne jamais
+/// laisser l'utilisateur dans une impasse après avoir combiné des filtres
+/// trop restrictifs.
+class _NoFilteredResults extends ConsumerWidget {
+  const _NoFilteredResults();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.xl),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.search_off_rounded,
+              color: AppColors.textSecondary,
+              size: 40,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            const Text(
+              'Aucun bien ne correspond à ces filtres.',
+              textAlign: TextAlign.center,
+              style: AppTypography.body,
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            const Text(
+              'Essaie d\'élargir tes critères ou repars d\'une recherche '
+              'déjà enregistrée.',
+              textAlign: TextAlign.center,
+              style: AppTypography.bodySecondary,
+            ),
+            const SizedBox(height: AppSpacing.xl),
+            PhButton(
+              label: 'Modifier les filtres',
+              expand: true,
+              onPressed: () => showFiltersSheet(context),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            PhButton(
+              label: 'Charger une recherche sauvegardée',
+              variant: PhButtonVariant.secondary,
+              expand: true,
+              onPressed: () => showSavedSearchesSheet(context),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            PhButton(
+              label: 'Réinitialiser les filtres',
+              variant: PhButtonVariant.text,
+              onPressed: () =>
+                  ref.read(searchFiltersControllerProvider.notifier).reset(),
+            ),
+          ],
+        ),
       ),
     );
   }

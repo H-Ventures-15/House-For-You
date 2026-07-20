@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widgets/property_card.dart' show propertyTypeLabel;
 import '../../../data/models/property.dart';
 import '../../../data/models/search_filters.dart';
 
@@ -365,6 +366,59 @@ String summarizeFilters(SearchFilters filters) {
 String _formatBudget(num value) {
   if (value >= 1000) return '${(value / 1000).round()}k €';
   return '${value.round()} €';
+}
+
+// --- Recherches sauvegardées : libellé/sous-titre/icône dérivés ---------
+//
+// `SavedSearch` ne stocke que des `SearchFilters` (voir
+// `data/models/saved_search.dart`) — label par défaut, sous-titre et icône
+// affichés dans les aperçus/listes se calculent à la volée pour ne jamais
+// dupliquer ce que les critères disent déjà.
+
+/// Nom par défaut proposé lors de l'enregistrement d'une recherche — ex.
+/// "Maison à Mons", "Appartement à Bruxelles". Toujours modifiable par
+/// l'utilisateur avant confirmation (voir `filters_sheet.dart`).
+String defaultSavedSearchName(SearchFilters filters) {
+  final typeLabel = filters.propertyTypes.isEmpty
+      ? 'Recherche'
+      : propertyTypeLabel(filters.propertyTypes.first);
+  final place = (filters.city?.isNotEmpty ?? false)
+      ? filters.city!
+      : (filters.province ?? 'en Belgique');
+  return place.startsWith('en ') ? '$typeLabel $place' : '$typeLabel à $place';
+}
+
+/// Résumé court affiché sous le libellé d'une recherche sauvegardée — ex.
+/// "Vente · Jusqu'à 350k €".
+String savedSearchSubtitle(SearchFilters filters) {
+  final parts = <String>[];
+  if (filters.transactionType != null) {
+    parts.add(
+      filters.transactionType == TransactionType.rent ? 'Location' : 'Vente',
+    );
+  }
+  if (filters.budgetMax != null) {
+    final suffix =
+        filters.transactionType == TransactionType.rent ? '/mois' : '';
+    parts.add('Jusqu\'à ${_formatBudget(filters.budgetMax!)}$suffix');
+  } else if (filters.minBedrooms != null) {
+    parts.add('${filters.minBedrooms}+ chambres');
+  } else if (filters.characteristics.isNotEmpty) {
+    parts.add('${filters.characteristics.length} critère(s)');
+  }
+  if (parts.isEmpty) return 'Tous les critères';
+  return parts.join(' · ');
+}
+
+/// Icône représentative — celle du premier type de bien sélectionné, sinon
+/// une icône de recherche générique.
+IconData savedSearchIcon(SearchFilters filters) {
+  if (filters.propertyTypes.isEmpty) return Icons.search_rounded;
+  final match = propertyTypeOptions.firstWhere(
+    (o) => filters.propertyTypes.contains(o.type),
+    orElse: () => propertyTypeOptions.first,
+  );
+  return match.icon;
 }
 
 const locationSuggestions = [

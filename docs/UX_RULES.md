@@ -2,7 +2,7 @@
 
 > **Statut : vivant.** Ce document liste toutes les règles d'expérience utilisateur non négociables. **Aucune règle ici ne doit être cassée sans qu'une entrée correspondante soit ajoutée à [DECISIONS.md](DECISIONS.md) expliquant pourquoi.** Si le code et ce document divergent, le document doit être corrigé dans le même commit que le changement.
 >
-> Dernière mise à jour : 2026-07-20 (sous-étape 2.2 — gestes & interactions naturelles).
+> Dernière mise à jour : 2026-07-20 (sous-étape 2.3 — recherche, filtres et recherches sauvegardées).
 
 ---
 
@@ -78,6 +78,13 @@ House For You vise la sensation d'une application Apple ou Airbnb — minimalist
 - Pied fixe : bouton d'action principal, toujours visible même si le contenu défile.
 - Le clavier ne doit **jamais** masquer le champ actif ou le bouton d'action — la feuille remonte avec `MediaQuery.viewInsets.bottom` (voir `FiltersSheet` dans `filters_sheet.dart`).
 
+## 9 bis. Hiérarchie des filtres
+
+- Deux niveaux, jamais un formulaire administratif à plat : les critères principaux (localisation, type de transaction, budget, type de bien, chambres) restent **toujours visibles** à l'ouverture de la feuille de filtres ; les critères avancés (salles de bain, surfaces, PEB, caractéristiques, état du bien, date de publication, tri, ambiance de vie) vivent sous une section repliable « Plus de filtres ».
+- « Plus de filtres » affiche un badge de comptage dès qu'un critère avancé est actif — l'utilisateur ne perd jamais de vue qu'un filtre est appliqué même sans déplier la section.
+- Les recherches enregistrées (aperçu horizontal + action d'enregistrement) restent au niveau principal, entre les critères de base et « Plus de filtres » — un accès rapide à une recherche déjà affinée ne doit jamais être noyé sous un repli.
+- Dépliage/repli animé (`AnimatedSize`, 220 ms, `Curves.easeOut`) — jamais un saut de layout brutal.
+
 ## 10. Transitions
 
 - Aucun effet brutal — toute apparition/disparition est animée (fondu, glissement, échelle), jamais un `setState` qui fait « sauter » un élément.
@@ -105,6 +112,7 @@ Le détail des couleurs, typographies, espacements, rayons, ombres et composants
 - Aucune action ne force une connexion au lancement de l'app.
 - Seules les actions qui **engagent** (favori, contacter une agence, demander une visite, créer une alerte) déclenchent la porte d'authentification (`requireAuth()`, `lib/core/auth/auth_guard.dart`).
 - Tant que l'écran de connexion réel n'existe pas (avant l'étape 5), la porte affiche un message explicite (SnackBar) plutôt que de bloquer silencieusement ou de construire un écran de connexion prématuré — voir [DECISIONS.md](DECISIONS.md).
+- **Exception documentée** : enregistrer/charger/renommer/supprimer une recherche sauvegardée ne déclenche **pas** cette porte, à la différence des favoris — voir [DECISIONS.md](DECISIONS.md) ADR-016.
 
 ## 15. Performance perçue
 
@@ -117,6 +125,13 @@ Le détail des couleurs, typographies, espacements, rayons, ombres et composants
 - **Aucune fonctionnalité ne doit dépendre exclusivement d'un geste.** Chaque action atteignable par un geste (double tap, appui long) reste aussi atteignable par un élément visible et statique : bouton favori toujours affiché (rail d'actions du feed, fiche détail), bloc texte toujours tapable pour ouvrir la fiche, bouton retour toujours affiché en fiche détail.
 - Les boutons et zones tactiles principaux (favori, partager, ouvrir la fiche, retour) portent un label sémantique explicite (`Semantics(button: true, label: ...)`) pour les lecteurs d'écran (VoiceOver/TalkBack) — voir `lib/core/widgets/property_card.dart` et `lib/features/discover/property_detail_screen.dart`.
 - `allowImplicitScrolling: true` sur les `PageView` du feed et des galeries reste actif pour son bénéfice réel d'accessibilité (navigation VoiceOver/TalkBack) — voir [DECISIONS.md](DECISIONS.md) ADR-007.
+
+## 17. États de recherche particuliers
+
+- **Zéro résultat** — jamais un simple message avec un unique bouton « Réessayer » : trois issues concrètes toujours proposées ensemble — Modifier les filtres (rouvre la feuille), Réinitialiser les filtres, Charger une recherche sauvegardée (ouvre l'accès rapide de la barre flottante). Voir `_NoFilteredResults`, `discover_screen.dart`.
+- **Filtres incompatibles** — changer de type de transaction (achat ↔ location) réinitialise un budget déjà choisi plutôt que de laisser une valeur numériquement absurde sur la nouvelle échelle (350 000 € de loyer mensuel, par exemple). Un simple re-tap de la transaction déjà sélectionnée ne déclenche jamais cette réinitialisation.
+- **Recherche sans nom** — le dialogue d'enregistrement/renommage propose toujours un nom par défaut pertinent ; une confirmation avec un champ laissé vide retombe silencieusement sur ce nom par défaut plutôt que de créer/renommer une recherche sans libellé.
+- **Recherche sauvegardée supprimée** — aucune référence résiduelle : les critères déjà chargés dans la feuille de filtres au moment de la suppression restent inchangés (une recherche sauvegardée n'est qu'un raccourci pour pré-remplir les filtres, jamais un lien vivant vers eux). La liste affiche un état vide explicite (icône + message + invitation à enregistrer une recherche) si elle ne contient plus aucune entrée.
 
 ---
 

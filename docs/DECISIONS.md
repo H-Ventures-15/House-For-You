@@ -2,7 +2,7 @@
 
 > **Statut : vivant.** Registre des décisions importantes (architecture, produit, UX, choix de packages). Format court : Contexte → Décision → Conséquences. **Toute règle d'[UX_RULES.md](UX_RULES.md) qui serait un jour cassée doit d'abord avoir une entrée ici expliquant pourquoi.** Les décisions ne se suppriment jamais, même remplacées — une décision remplacée reste tracée avec un renvoi vers celle qui la remplace.
 >
-> Dernière mise à jour : 2026-07-20 (sous-étape 2.2 — gestes & interactions naturelles).
+> Dernière mise à jour : 2026-07-20 (sous-étape 2.3 — recherche, filtres et recherches sauvegardées).
 
 ---
 
@@ -184,6 +184,32 @@
 **Détail technique complémentaire** : la barre de recherche flottante ne se contente pas de repasser à visible au relâchement — elle restaure exactement sa valeur de visibilité continue d'avant l'appui long (`_barVisibilityBeforeLongPress` dans `discover_screen.dart`), cohérent avec le principe déjà posé en ADR-006 (visibilité continue plutôt que show/hide binaire) : si l'utilisateur avait déjà fait défiler le feed vers le bas (barre masquée par le scroll) puis fait un appui long, la barre reste masquée après relâchement plutôt que de réapparaître puis se re-masquer.
 
 **Conséquences** : testé (`test/discover_feed_test.dart` — masquage/restauration de l'état précédent de la barre ; `test/property_card_gestures_test.dart` — masquage/restauration du chrome de la carte, non-déclenchement du double tap/de l'ouverture de fiche pendant l'appui). Si un besoin produit futur justifie de masquer aussi la bottom bar pendant l'appui long, ce sera un changement architectural à part entière (canal de communication shell ↔ feature) — pas une extension mineure de ce geste.
+
+---
+
+## ADR-016 — Les recherches sauvegardées ne passent pas par `requireAuth()`, contrairement aux favoris
+
+**Contexte** : sous-étape 2.3, la demande couvrait explicitement un cycle complet enregistrer/charger/renommer/supprimer une recherche, avec validation attendue de chacune de ces actions. Le modèle de données cible ([DATABASE_PLAN.md](DATABASE_PLAN.md) section 3.12) prévoit une table `saved_searches` avec `user_id`, ce qui suggérerait par réflexe de reproduire le pattern `requireAuth()` déjà utilisé pour les favoris (ADR-014).
+
+**Décision** : enregistrer, charger, renommer et supprimer une recherche sauvegardée restent des actions accessibles sans authentification à cette étape (mock/mémoire), en écart volontaire avec le pattern favoris.
+
+**Justification** :
+1. [UX_RULES.md](UX_RULES.md) section 14 liste explicitement les actions protégées : « favori, contacter une agence, demander une visite, créer une alerte ». Les recherches sauvegardées n'y figurent pas — ce n'est pas un oubli mais une lecture cohérente avec le principe « zéro friction à l'usage » ([PRODUCT_SPEC.md](PRODUCT_SPEC.md) section 4) : une recherche sauvegardée est un raccourci de la même exploration passive que les filtres eux-mêmes (regarder), pas un engagement envers un tiers (agence) ni une collection identitaire durable comme les favoris.
+2. **Contrainte pratique décisive** : `authStateProvider` (`lib/core/auth/auth_guard.dart`) reste câblé sur `false` en permanence tant que l'étape 5 (authentification réelle) n'est pas construite — aucun écran de connexion n'existe encore pour passer la porte. Geler cette fonctionnalité derrière `requireAuth()` l'aurait rendue totalement invalidable dans ce sprint, alors que la checklist de validation demandée exige explicitement de tester sauvegarde/chargement/renommage/suppression bout en bout.
+
+**Conséquences** : `SavedSearchesRepository`/`MockSavedSearchesDataSource` acceptent un `userId` sur chaque méthode (prépare la policy RLS Supabase future) mais l'implémentation mock l'ignore, faute d'une vraie session utilisateur à cette étape — voir [TECH_ARCHITECTURE.md](TECH_ARCHITECTURE.md). **Le jour où l'étape 5 sera construite**, ajouter `requireAuth()` aux points d'entrée d'écriture (`_handleSaveSearch` dans `filters_sheet.dart`, `_handleRename`/`_handleDelete` dans `saved_searches_sheet.dart`) sera une extension mineure, cohérente avec ADR-014 — pas un changement d'architecture. Testé (`test/filters_sheet_test.dart`, `test/saved_searches_sheet_test.dart`).
+
+---
+
+## ADR-017 — Hiérarchie « Plus de filtres » repliée par défaut, plutôt qu'une liste plate de 14 sections
+
+**Contexte** : la feuille de filtres construite à l'étape 2 (commit `4461646`) affichait ses 14 sections à plat, dans un ordre fixe, sans distinction d'importance. La demande de la sous-étape 2.3 insistait explicitement sur le fait de ne « jamais afficher tous les critères avec la même importance » et de ne jamais donner « l'impression de remplir un formulaire administratif ».
+
+**Décision** : seuls 5 groupes de critères restent immédiatement visibles à l'ouverture (localisation + rayon, type de transaction, budget, type de bien, chambres), plus les recherches enregistrées (accès rapide à un jeu de critères déjà affiné). Les 8 groupes restants (salles de bain, surfaces, PEB, caractéristiques, état du bien, date de publication, tri, ambiance de vie) vivent sous une section repliable « Plus de filtres », avec un badge indiquant leur nombre actif pour ne jamais donner l'impression qu'un critère avancé actif serait « perdu » en repliant la section.
+
+**Alternative envisagée et écartée** : conserver la liste plate mais réordonner les sections par fréquence d'usage supposée. Écartée car elle ne résout pas le problème de fond (14 sections d'un coup restent visuellement écrasantes au premier scroll, quel que soit l'ordre) — seul un repli réel réduit la charge visuelle initiale.
+
+**Conséquences** : `_showMoreFilters` (état local à `FiltersSheet`) contrôle un `AnimatedSize` (220 ms, `Curves.easeOut`) — testé (`test/filters_sheet_test.dart`, « Plus de filtres est replié par défaut... »). Voir [UX_RULES.md](UX_RULES.md) section 9 bis pour la règle produit et [PRODUCT_SPEC.md](PRODUCT_SPEC.md) section 10.2 pour le détail des deux niveaux.
 
 ---
 

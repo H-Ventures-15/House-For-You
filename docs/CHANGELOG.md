@@ -8,6 +8,24 @@
 
 ## [Non publié] — 0.1.0
 
+### 2026-07-20 — Recherche, filtres et recherches sauvegardées (sous-étape 2.3 / « Sprint 2.4 »)
+
+**Ajouts**
+- Hiérarchie des filtres à deux niveaux : critères principaux (localisation + rayon, type de transaction, budget, type de bien, chambres) toujours visibles ; 8 critères avancés (salles de bain, surfaces, PEB, caractéristiques, état du bien, date de publication, tri, ambiance de vie) repliés sous une section « Plus de filtres » avec badge de comptage (`lib/features/discover/filters/filters_sheet.dart`).
+- Recherches sauvegardées réellement fonctionnelles : `SavedSearch` porte désormais de vrais `SearchFilters` (plus un libellé statique) ; `SavedSearchesRepository`/`MockSavedSearchesDataSource`/`SavedSearchesController` suivant le pattern déjà établi (ADR-011). Enregistrer propose un nom par défaut pertinent (modifiable, dialogue partagé `promptSavedSearchName`), confirme visuellement ; charger, renommer et supprimer sont fonctionnels depuis la feuille de filtres et l'accès rapide de la barre flottante (`lib/features/discover/saved_searches_sheet.dart`).
+- Réinitialisation automatique du budget au changement de type de transaction (achat ↔ location) — échelles de prix incompatibles.
+- État "zéro résultat" enrichi (`_NoFilteredResults`, `discover_screen.dart`) : trois actions (Modifier les filtres, Réinitialiser, Charger une recherche sauvegardée) plutôt qu'un message à bouton unique.
+- Labels sémantiques (`Semantics(selected:, button:, label:)`) sur `PillChoice`, `IconGridChoice`, `BigChoiceCard` (`filter_widgets.dart`) — la sélection n'est jamais signalée uniquement par la couleur.
+- Tests : `test/filters_sheet_test.dart`, `test/saved_searches_sheet_test.dart` (9 tests, 39 au total désormais).
+
+**Non modifié (revérifié sans régression)**
+- Gestes du feed (Sprint 2.3 : appui long, double tap, retour haptique, labels sémantiques du feed) et fluidité (Sprint 2.2 : `SnappyPageScrollPhysics`, `RepaintBoundary`, précache) : fichiers concernés non touchés.
+- Les 14 sections de filtres existantes (étape 2) : comportement inchangé, seule leur disposition (principal/avancé) a changé.
+
+**Décisions produit**
+- Les recherches sauvegardées ne passent pas par `requireAuth()`, contrairement aux favoris — voir [DECISIONS.md](DECISIONS.md) ADR-016.
+- « Plus de filtres » repliée par défaut plutôt qu'une liste plate de 14 sections — voir [DECISIONS.md](DECISIONS.md) ADR-017.
+
 ### 2026-07-20 — Gestes & interactions naturelles (sous-étape 2.2 / « Sprint 2.3 »)
 
 **Ajouts**

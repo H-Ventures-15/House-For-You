@@ -2,7 +2,7 @@
 
 > **Statut : vivant.** Source de vérité technique du projet. Supersède la partie architecture d'[architecture-mvp.md](architecture-mvp.md) (conservé comme document historique du cahier des charges initial — voir note en tête de ce fichier). Toute évolution structurelle (nouveau dossier, nouveau pattern, nouvelle dépendance) doit être reflétée ici avant le commit qui l'introduit.
 >
-> Dernière mise à jour : 2026-07-20 (fin de la sous-étape 2.2).
+> Dernière mise à jour : 2026-07-20 (fin de la sous-étape 2.3).
 
 ---
 
@@ -96,7 +96,7 @@ lib/
 | `user_profile.dart` | `UserProfile`, `UserRole` | Modèle prêt, non consommé (attend l'étape 5/8) |
 | `lead.dart` | `Lead`, `LeadType`, `LeadStatus` | Modèle prêt, non consommé (attend l'étape 7) |
 | `search_filters.dart` | `SearchFilters`, `PropertyCondition`, `PublicationRecency`, `SortOption` | Utilisé — voir section 6 |
-| `saved_search.dart` | `SavedSearch` | Utilisé (mock statique) |
+| `saved_search.dart` | `SavedSearch` | Utilisé — porte de vrais `SearchFilters` depuis la sous-étape 2.3 (plus un simple libellé statique), voir section 5 bis |
 
 ## 5. Repositories & datasources mock
 
@@ -106,11 +106,12 @@ lib/
 | `AgencyRepository` | `MockAgencyDataSource` | `agencyRepositoryProvider` |
 | `FavoritesRepository` | `MockFavoritesDataSource` | `favoritesRepositoryProvider` |
 | `LeadsRepository` | `MockLeadsDataSource` | `leadsRepositoryProvider` |
+| `SavedSearchesRepository` | `MockSavedSearchesDataSource` | `savedSearchesRepositoryProvider` |
 | `AnalyticsService` | `MockAnalyticsService` | `analyticsServiceProvider` |
 
 Toute l'injection vit dans **un seul fichier** : `lib/data/providers/repository_providers.dart`. Basculer un repository vers Supabase = changer la valeur retournée par son provider, rien d'autre.
 
-**Providers dérivés** (`lib/data/providers/feed_providers.dart`, `search_filters_controller.dart`, `favorites_controller.dart`) :
+**Providers dérivés** (`lib/data/providers/feed_providers.dart`, `search_filters_controller.dart`, `favorites_controller.dart`, `saved_searches_controller.dart`) :
 
 - `feedPropertiesProvider` (`FutureProvider<List<Property>>`) — biens publiés, triés par nouveauté.
 - `agenciesByIdProvider` (`FutureProvider<Map<String, Agency>>`) — évite un appel par carte pour le logo agence.
@@ -118,6 +119,18 @@ Toute l'injection vit dans **un seul fichier** : `lib/data/providers/repository_
 - `searchFiltersControllerProvider` (`StateNotifierProvider<SearchFiltersController, SearchFilters>`) — état des filtres actifs, lu/écrit en direct par la feuille de filtres et la barre flottante.
 - `filteredPropertyCountProvider` (`Provider<int>`) — compteur du bouton « Afficher N biens », **calcul réel** sur les données mock via `SearchFilters.matches()` (voir section 6), pas un chiffre inventé.
 - `favoritesControllerProvider` (`StateNotifierProvider<FavoritesController, Set<String>>`) — favoris de la session, avec un identifiant utilisateur mock unique (`mockSessionUserId`) tant que l'authentification réelle n'existe pas.
+- `savedSearchesControllerProvider` (`StateNotifierProvider<SavedSearchesController, AsyncValue<List<SavedSearch>>>`) — recherches sauvegardées de la session (`save`/`rename`/`remove`), voir section 5 bis. Contrairement à `favoritesControllerProvider`, ses écritures ne sont **pas** gardées par `requireAuth()` à cette étape (voir [DECISIONS.md](DECISIONS.md) ADR-016).
+
+## 5 bis. Recherches sauvegardées
+
+`SavedSearch` (`lib/data/models/saved_search.dart`) porte un `id`, un `label` et de vrais `SearchFilters` (plus `createdAt`) — le libellé par défaut, le sous-titre et l'icône affichés dans les listes/aperçus se dérivent des critères à la volée (`defaultSavedSearchName`/`savedSearchSubtitle`/`savedSearchIcon`, `lib/features/discover/filters/filter_options.dart`) plutôt que d'être stockés en double.
+
+`MockSavedSearchesDataSource` (`lib/data/datasources/mock/mock_saved_searches_datasource.dart`) tient une liste en mémoire, semée de 4 recherches de démonstration — dont « Maison à Mons », volontairement construite pour ne matcher aucun bien mock (aucune localité « Mons » dans `mock_property_data.dart`), utilisée comme démonstration prête à l'emploi de l'état "zéro résultat" (voir [UX_RULES.md](UX_RULES.md) section 17). Chaque méthode du repository (`getAll`/`save`/`rename`/`remove`) accepte un `userId`, ignoré par le mock (voir [DECISIONS.md](DECISIONS.md) ADR-016) mais déjà correct pour la future policy RLS Supabase (`saved_searches.user_id`, voir [DATABASE_PLAN.md](DATABASE_PLAN.md) section 3.12).
+
+Points d'entrée UI :
+- **Enregistrer** — `_handleSaveSearch` (`filters_sheet.dart`) ouvre `promptSavedSearchName` (`saved_search_name_dialog.dart`, dialogue partagé avec le renommage) pré-rempli d'un nom par défaut, puis confirme visuellement (`SnackBar`).
+- **Charger** — depuis l'aperçu horizontal de `filters_sheet.dart` (reste ouverte) ou depuis `saved_searches_sheet.dart` (ferme immédiatement le panneau) : les deux appellent `searchFiltersControllerProvider.notifier.update((_) => search.filters)`, remplaçant l'état actif par les critères sauvegardés.
+- **Renommer** / **Supprimer** — uniquement depuis `saved_searches_sheet.dart` (icônes dédiées par ligne), avec confirmation avant suppression.
 
 ## 6. `SearchFilters` — le modèle de recherche
 
@@ -160,9 +173,16 @@ Objet non persisté, construit par la feuille de filtres (étape 2) et, plus tar
 - **Accessibilité** : `Semantics(button: true, label: ...)` sur les boutons favori/partager (`property_card.dart`), la zone d'ouverture de fiche (`property_card.dart`), et les boutons retour/favori/partage de la fiche détail (`_RoundIconButton`, `property_detail_screen.dart`).
 - La bottom bar (`MainShell`) n'est volontairement pas masquée par ce geste — voir [DECISIONS.md](DECISIONS.md) ADR-015 pour la justification architecturale (frontière shell/feature) et produit (UX_RULES.md section 11).
 
+## 10 ter. Hiérarchie des filtres (sous-étape 2.3)
+
+- `_FiltersSheetState._showMoreFilters` (bool local) contrôle un `AnimatedSize` (220 ms, `Curves.easeOut`) enveloppant les 8 sections avancées (salles de bain, surfaces, PEB, caractéristiques, état du bien, date de publication, tri, ambiance de vie) — repliées par défaut (`SizedBox` vide) tant que l'utilisateur n'a pas tapé sur « Plus de filtres ». Les widgets des sections avancées ne sont **pas construits du tout** tant que repliées (branche conditionnelle du `Column`, pas un simple `Visibility`/opacité) — coût de build nul à l'état replié.
+- `_advancedFilterCount(filters)` calcule le nombre de groupes avancés actifs pour le badge du bouton « Plus de filtres » — même logique que `SearchFilters.activeFilterCount` mais restreinte aux seuls critères déplacés sous le repli.
+- Changer de type de transaction réinitialise `budgetMin`/`budgetMax` (sauf re-tap de la transaction déjà sélectionnée) — voir [DECISIONS.md](DECISIONS.md) et [UX_RULES.md](UX_RULES.md) section 17.
+- L'état "zéro résultat" (`_NoFilteredResults`, `discover_screen.dart`) remplace le feed entier — y compris la barre de recherche flottante, qui vit dans `_DiscoverFeed` — quand `filtered.isEmpty` ; ses trois actions (`showFiltersSheet`, `showSavedSearchesSheet`, `searchFiltersControllerProvider.notifier.reset()`) restent toutes accessibles depuis cet écran de secours.
+
 ## 11. Tests
 
-7 fichiers, 30 tests (`flutter test`). Conventions : voir [CONTRIBUTING.md](CONTRIBUTING.md).
+9 fichiers, 39 tests (`flutter test`). Conventions : voir [CONTRIBUTING.md](CONTRIBUTING.md).
 
 | Fichier | Couvre |
 |---|---|
@@ -173,6 +193,8 @@ Objet non persisté, construit par la feuille de filtres (étape 2) et, plus tar
 | `property_detail_test.dart` | Contenu de la fiche détail, porte d'authentification |
 | `property_detail_dismiss_test.dart` | Fermeture par swipe (seuil de confirmation), scroll vertical du contenu sans fermeture accidentelle |
 | `snappy_page_physics_test.dart` | Tuning du ressort personnalisé |
+| `filters_sheet_test.dart` | Repli/dépliage de « Plus de filtres », enregistrement d'une recherche (dialogue + confirmation), réinitialisation du budget au changement de transaction, état "zéro résultat" |
+| `saved_searches_sheet_test.dart` | Chargement/renommage/suppression d'une recherche sauvegardée depuis l'accès rapide, état vide, chargement d'une recherche menant à "zéro résultat" |
 
 `network_image_mock` est requis dans tout test qui rend un `Image.network` — sans lui, `flutter test` bloque toutes les requêtes HTTP et fait échouer le test avec un timer en attente (voir [CONTRIBUTING.md](CONTRIBUTING.md)).
 

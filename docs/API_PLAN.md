@@ -2,7 +2,7 @@
 
 > **Statut : vivant, non implémenté.** House For You n'aura pas d'API REST maison — Supabase expose Postgres directement via PostgREST (requêtes filtrées protégées par RLS), complété par des Edge Functions pour tout ce qui doit être validé côté serveur. Ce document mappe chaque méthode de repository Dart existante à son futur point d'accès Supabase, pour que la bascule de l'étape 10 ([ROADMAP.md](ROADMAP.md)) soit une simple substitution.
 >
-> Dernière mise à jour : 2026-07-20.
+> Dernière mise à jour : 2026-07-20 (sous-étape 2.3 — `SavedSearchesRepository` créé côté mock).
 
 ---
 
@@ -54,13 +54,23 @@ Chaque repository Dart (`lib/data/repositories/*.dart`) restera l'unique point d
 |---|---|
 | `track(PropertyEvent)` | **Jamais un `INSERT` direct.** Appel à l'Edge Function `track-event` (voir section 5) — c'est la seule voie d'écriture vers `property_events`. |
 
-### 2.6 Futurs repositories (non encore créés côté Dart)
+### 2.6 `SavedSearchesRepository` *(créé à la sous-étape 2.3, mock complet)*
+
+| Méthode Dart | Implémentation Supabase future |
+|---|---|
+| `getAll(userId)` | `SELECT` sur `saved_searches`, filtrée par RLS (`user_id = auth.uid()`). |
+| `save(userId, label, filters)` | `INSERT` sur `saved_searches` — nécessite d'abord la sérialisation `toJson` de `SearchFilters` (voir [DATABASE_PLAN.md](DATABASE_PLAN.md) section 9, point 5). |
+| `rename(userId, searchId, newLabel)` | `UPDATE saved_searches SET label = ... WHERE id = ...`. |
+| `remove(userId, searchId)` | `DELETE` sur `saved_searches`. |
+
+Contrairement à `FavoritesRepository`, les points d'entrée UI de ce repository ne passent pas encore par `requireAuth()` (voir [DECISIONS.md](DECISIONS.md) ADR-016) — à ajouter au même moment que la bascule Supabase, puisque la policy RLS `user_id = auth.uid()` exigera une session réelle.
+
+### 2.7 Futurs repositories (non encore créés côté Dart)
 
 | Repository (à créer) | Écran(s) concerné(s) | Étape |
 |---|---|---|
 | `AuthRepository` | Connexion/inscription modale | 5 |
 | `UserProfileRepository` | Profil | 8 |
-| `SavedSearchRepository` | Recherches enregistrées (persistance réelle, aujourd'hui mock statique) | à planifier — voir [BACKLOG.md](BACKLOG.md) |
 
 ## 3. Authentification (étape 5)
 

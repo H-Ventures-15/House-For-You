@@ -1,14 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
-import '../../data/datasources/mock/mock_saved_searches.dart';
 import '../../data/models/saved_search.dart';
+import '../../data/providers/saved_searches_controller.dart';
+import '../../data/providers/search_filters_controller.dart';
+import 'filters/filter_options.dart';
+import 'filters/saved_search_name_dialog.dart';
 
-/// Panneau "recherches enregistrées" — prépare l'UX (étape 2) avant que la
-/// recherche guidée réelle (étape 3) ne vienne l'alimenter. Sélectionner une
-/// recherche ne fait, à ce stade, que fermer le panneau : aucune donnée
-/// mock supplémentaire n'est créée, aucune connexion Supabase.
+/// Panneau "recherches enregistrées", accessible en un geste depuis la
+/// barre flottante du feed (voir `FloatingSearchBar`) — permet de changer de
+/// recherche sans rouvrir toute la feuille de filtres (voir PRODUCT_SPEC.md
+/// section 10.2). Charger une recherche ne nécessite pas de session
+/// (lecture seule) ; renommer/supprimer non plus à cette étape (voir
+/// DECISIONS.md ADR-016).
 Future<void> showSavedSearchesSheet(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
@@ -18,11 +25,13 @@ Future<void> showSavedSearchesSheet(BuildContext context) {
   );
 }
 
-class _SavedSearchesSheet extends StatelessWidget {
+class _SavedSearchesSheet extends ConsumerWidget {
   const _SavedSearchesSheet();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final searchesAsync = ref.watch(savedSearchesControllerProvider);
+
     return DraggableScrollableSheet(
       initialChildSize: 0.55,
       minChildSize: 0.3,
@@ -65,17 +74,39 @@ class _SavedSearchesSheet extends StatelessWidget {
                 ),
               ),
               Expanded(
-                child: ListView.separated(
-                  controller: scrollController,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.lg,
-                    vertical: AppSpacing.sm,
+                child: searchesAsync.when(
+                  loading: () => const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(AppSpacing.xl),
+                      child: CircularProgressIndicator(),
+                    ),
                   ),
-                  itemCount: mockSavedSearches.length,
-                  separatorBuilder: (context, index) =>
-                      const SizedBox(height: AppSpacing.sm),
-                  itemBuilder: (context, index) {
-                    return _SavedSearchTile(search: mockSavedSearches[index]);
+                  error: (error, stackTrace) => const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(AppSpacing.xl),
+                      child: Text(
+                        'Impossible de charger tes recherches.',
+                        style: AppTypography.bodySecondary,
+                      ),
+                    ),
+                  ),
+                  data: (searches) {
+                    if (searches.isEmpty) {
+                      return const _EmptySavedSearches();
+                    }
+                    return ListView.separated(
+                      controller: scrollController,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.lg,
+                        vertical: AppSpacing.sm,
+                      ),
+                      itemCount: searches.length,
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(height: AppSpacing.sm),
+                      itemBuilder: (context, index) {
+                        return _SavedSearchTile(search: searches[index]);
+                      },
+                    );
                   },
                 ),
               ),
@@ -87,55 +118,165 @@ class _SavedSearchesSheet extends StatelessWidget {
   }
 }
 
-class _SavedSearchTile extends StatelessWidget {
+class _EmptySavedSearches extends StatelessWidget {
+  const _EmptySavedSearches();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(AppSpacing.xl),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.bookmark_border_rounded,
+              color: AppColors.textSecondary,
+              size: 40,
+            ),
+            SizedBox(height: AppSpacing.md),
+            Text(
+              'Aucune recherche enregistrée pour l\'instant.',
+              textAlign: TextAlign.center,
+              style: AppTypography.body,
+            ),
+            SizedBox(height: AppSpacing.xs),
+            Text(
+              'Enregistre tes critères depuis la feuille de filtres pour '
+              'les retrouver ici.',
+              textAlign: TextAlign.center,
+              style: AppTypography.bodySecondary,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SavedSearchTile extends ConsumerWidget {
   const _SavedSearchTile({required this.search});
 
   final SavedSearch search;
 
+  Future<void> _handleRename(BuildContext context, WidgetRef ref) async {
+    final name = await promptSavedSearchName(
+      context: context,
+      title: 'Renommer cette recherche',
+      initialValue: search.label,
+      confirmLabel: 'Renommer',
+    );
+    if (name == null) return;
+    final finalName = name.trim().isEmpty ? search.label : name.trim();
+    await ref
+        .read(savedSearchesControllerProvider.notifier)
+        .rename(search.id, finalName);
+  }
+
+  Future<void> _handleDelete(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Supprimer cette recherche ?'),
+        content: Text('« ${search.label} » sera définitivement supprimée.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await ref.read(savedSearchesControllerProvider.notifier).remove(search.id);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text('« ${search.label} » supprimée.')),
+      );
+  }
+
+  void _handleLoad(BuildContext context, WidgetRef ref) {
+    ref
+        .read(searchFiltersControllerProvider.notifier)
+        .update((_) => search.filters);
+    Navigator.of(context).pop();
+  }
+
   @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.background,
-      borderRadius: BorderRadius.circular(AppRadius.md),
-      child: InkWell(
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Semantics(
+      button: true,
+      label: 'Charger la recherche « ${search.label} »',
+      child: Material(
+        color: AppColors.background,
         borderRadius: BorderRadius.circular(AppRadius.md),
-        onTap: () => Navigator.of(context).pop(),
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          onTap: () => _handleLoad(context, ref),
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    savedSearchIcon(search.filters),
+                    color: AppColors.primary,
+                    size: 22,
+                  ),
                 ),
-                child: Icon(search.icon, color: AppColors.primary, size: 22),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      search.label,
-                      style: AppTypography.body.copyWith(
-                        fontWeight: FontWeight.w600,
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        search.label,
+                        style: AppTypography.body.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(search.subtitle, style: AppTypography.caption),
-                  ],
+                      const SizedBox(height: 2),
+                      Text(
+                        savedSearchSubtitle(search.filters),
+                        style: AppTypography.caption,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: AppColors.textSecondary,
-              ),
-            ],
+                Semantics(
+                  button: true,
+                  label: 'Renommer « ${search.label} »',
+                  child: IconButton(
+                    icon: const Icon(Icons.edit_outlined, size: 20),
+                    color: AppColors.textSecondary,
+                    onPressed: () => _handleRename(context, ref),
+                  ),
+                ),
+                Semantics(
+                  button: true,
+                  label: 'Supprimer « ${search.label} »',
+                  child: IconButton(
+                    icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                    color: AppColors.textSecondary,
+                    onPressed: () => _handleDelete(context, ref),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
