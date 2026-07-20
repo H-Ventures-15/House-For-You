@@ -2,11 +2,20 @@
 
 Application mobile de recherche immobilière, mobile-first, pour la Belgique francophone (structure prête pour NL/EN).
 
-Voir [`docs/architecture-mvp.md`](docs/architecture-mvp.md) pour l'architecture complète, le schéma de base de données et l'ordre de développement du MVP.
+## Documentation
+
+La documentation officielle et à jour du projet vit dans [`/docs`](docs/README.md) — c'est la seule source de vérité produit et technique, maintenue à chaque fonctionnalité livrée. À lire en priorité :
+
+- [`docs/PRODUCT_SPEC.md`](docs/PRODUCT_SPEC.md) — vision, écrans, fonctionnalités en détail.
+- [`docs/ROADMAP.md`](docs/ROADMAP.md) — étapes de développement, état actuel.
+- [`docs/TECH_ARCHITECTURE.md`](docs/TECH_ARCHITECTURE.md) — architecture Flutter complète.
+- [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) — conventions de développement.
+
+Voir [`docs/README.md`](docs/README.md) pour l'index complet des douze documents.
 
 ## Statut
 
-**Étape 0 — Setup.** L'app compile et affiche une page de confirmation (comptage des biens/agences fictifs chargés via les datasources mock). Aucune connexion Supabase réelle, aucun écran final n'est encore développé — c'est volontaire (voir plan, étape 1+).
+Étapes 0, 1, 2 et 2.1 terminées : setup, coquille de navigation à 4 onglets, feed Découvrir plein écran (galerie, fiche détail, système de filtres complet), fluidité du swipe façon TikTok. Aucune connexion Supabase réelle — toutes les données sont mock, c'est volontaire (voir [`docs/ROADMAP.md`](docs/ROADMAP.md)).
 
 ## Prérequis
 
@@ -49,16 +58,10 @@ lib/
 └── l10n/        # fichiers .arb (fr rempli, nl/en présents mais vides)
 ```
 
-Le détail complet de l'arborescence et des choix d'architecture est documenté dans `architecture-mvp.md`.
+Le détail complet de l'arborescence et des choix d'architecture est documenté dans [`docs/TECH_ARCHITECTURE.md`](docs/TECH_ARCHITECTURE.md). Les décisions techniques (pourquoi Riverpod, pourquoi GoRouter, pourquoi pas de codegen...) sont dans [`docs/DECISIONS.md`](docs/DECISIONS.md).
 
-## Décisions techniques (étape 0)
-
-- **State management** : Riverpod — pas de `BuildContext` requis dans la logique métier, providers facilement testables.
-- **Navigation** : GoRouter — routes déclaratives, prêt pour le deep-linking futur.
-- **Modèles sans codegen** : classes Dart manuelles (`fromJson`/`toJson`/`copyWith` écrits à la main) plutôt que `freezed`/`json_serializable`, pour éviter une dépendance à `build_runner` dès le MVP.
-- **Mock-first** : chaque repository a une interface abstraite ; l'implémentation mock (données fictives) est branchée via Riverpod dans `lib/data/providers/repository_providers.dart`. Brancher Supabase plus tard = changer uniquement ce fichier.
 - **`.env` jamais commité** : seule la clé publique `anon` de Supabase y vivra (voir `.env.example`) — la sécurité réelle repose sur les policies RLS, pas sur le secret de cette clé.
 
-## Note environnement
+## Environnement de développement
 
-Ce scaffold a été rédigé et versionné depuis un environnement sandbox sans accès réseau à l'infrastructure Flutter/Dart (pub.dev, storage.googleapis.com). Les commandes `flutter pub get` / `flutter analyze` / `flutter test` n'ont donc **pas pu être exécutées dans cet environnement** — à exécuter en priorité en local avant toute suite de développement (voir le message de livraison de l'étape 0 pour le détail).
+Le projet doit vivre sur un volume supportant les liens symboliques (APFS/HFS+/ext4...) — **exFAT est incompatible** avec les builds iOS/macOS (CocoaPods échoue sur les liens symboliques de `ios/Flutter/ephemeral/`). Voir [`docs/TECH_ARCHITECTURE.md`](docs/TECH_ARCHITECTURE.md) section 13.

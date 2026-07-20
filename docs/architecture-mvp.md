@@ -1,5 +1,7 @@
 # House For You — Proposition d'architecture MVP (v3 — validée)
 
+> **Document historique, conservé pour la trace.** Depuis le 2026-07-20, ce document est **supersédé** par la documentation officielle du dossier [`/docs`](README.md) — en particulier [TECH_ARCHITECTURE.md](TECH_ARCHITECTURE.md) (architecture technique à jour), [DATABASE_PLAN.md](DATABASE_PLAN.md) (schéma de base de données à jour) et [PRODUCT_SPEC.md](PRODUCT_SPEC.md) (vision produit à jour). Ces trois documents sont maintenus en continu ; celui-ci ne l'est plus et peut diverger de l'état réel du projet. Voir [`/docs/README.md`](README.md) pour la structure complète.
+>
 > Copie versionnée dans le dépôt Git pour que toute personne/agent qui clone le projet ait le contexte complet. Le fichier de travail original reste à la racine du dossier partagé (`House For You/architecture-mvp.md`, hors dépôt) — en cas de divergence, cette copie fait foi pour le code puisqu'elle est versionnée avec lui.
 >
 > v2 intégrait les 9 premiers retours : feed vertical réintégré au MVP, pas d'inscription forcée à l'ouverture, agences retirées de la navigation principale, demandes de contact/visite enregistrées en base, statistiques essentielles dès le MVP, colonnes structurées pour les critères de recherche fréquents, modèle d'équipe d'agence, et médias prêts pour la vidéo.
