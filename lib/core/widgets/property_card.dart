@@ -5,6 +5,7 @@ import '../../data/models/property_media.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
+import 'snappy_page_physics.dart';
 
 /// Un seul composant, deux variantes — garantit la cohérence visuelle entre
 /// le feed Découvrir (`.feed()`, plein écran) et les listes de résultats /
@@ -736,6 +737,8 @@ class _Gallery extends StatelessWidget {
       controller: controller,
       scrollDirection: Axis.horizontal,
       onPageChanged: onPageChanged,
+      physics: const SnappyPageScrollPhysics(),
+      allowImplicitScrolling: true,
       itemCount: media.length,
       itemBuilder: (context, index) => _MediaItem(
         key: ValueKey('media-${media[index].id}'),

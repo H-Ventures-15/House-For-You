@@ -12,6 +12,7 @@ import '../../core/widgets/error_state.dart';
 import '../../core/widgets/loading_state.dart';
 import '../../core/widgets/ph_button.dart';
 import '../../core/widgets/property_card.dart';
+import '../../core/widgets/snappy_page_physics.dart';
 import '../../data/models/agency.dart';
 import '../../data/models/property.dart';
 import '../../data/models/property_event.dart';
@@ -466,6 +467,8 @@ class _DetailGalleryState extends State<_DetailGallery> {
           else
             PageView.builder(
               controller: _controller,
+              physics: const SnappyPageScrollPhysics(),
+              allowImplicitScrolling: true,
               itemCount: media.length,
               onPageChanged: (i) => setState(() => _index = i),
               itemBuilder: (context, i) {

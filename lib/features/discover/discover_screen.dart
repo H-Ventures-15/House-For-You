@@ -10,6 +10,7 @@ import '../../core/widgets/error_state.dart';
 import '../../core/widgets/floating_search_bar.dart';
 import '../../core/widgets/loading_state.dart';
 import '../../core/widgets/property_card.dart';
+import '../../core/widgets/snappy_page_physics.dart';
 import '../../data/models/agency.dart';
 import '../../data/models/property.dart';
 import '../../data/models/property_event.dart';
@@ -129,15 +130,33 @@ class _DiscoverFeedState extends ConsumerState<_DiscoverFeed> {
   }
 
   /// Précharge les photos du bien précédent et du bien suivant pour que le
-  /// swipe vertical paraisse instantané (voir `Image.network` + le cache
-  /// d'images Flutter, qui réutilise cette précharge sans nouvelle requête
-  /// une fois la carte réellement construite).
+  /// swipe vertical paraisse instantané : la latence perceptible d'un feed
+  /// à médias réseau vient presque toujours du téléchargement de l'image,
+  /// jamais de la construction du widget (quelques Text/Container, de
+  /// l'ordre du milliseconde) — `precacheImage` place l'image décodée dans
+  /// le cache Flutter *avant* que la carte voisine ne soit réellement
+  /// construite, qui la réutilise alors sans nouvelle requête réseau.
+  /// Combiné à `AutomaticKeepAliveClientMixin` sur `_FeedCardState` (l'état
+  /// d'une carte déjà visitée — sa photo affichée — survit tant qu'elle
+  /// reste dans la fenêtre du `PageView`), l'aller-retour arrière/avant
+  /// caractéristique d'un feed façon TikTok reste fluide dès le premier
+  /// passage.
+  ///
+  /// Les vidéos n'ont pas encore de lecteur (aucune donnée mock n'en
+  /// contient à cette étape — voir architecture-mvp.md, section 5) : seule
+  /// leur vignette (`thumbnailUrl`), déjà une image, est concernée. Le jour
+  /// où un lecteur vidéo sera branché, précharger le média complet plutôt
+  /// que la seule vignette se fera au même endroit.
   void _precacheNeighbors(int index) {
     for (final neighbor in [index - 1, index + 1]) {
       if (neighbor < 0 || neighbor >= widget.properties.length) continue;
-      for (final media in widget.properties[neighbor].media.take(2)) {
+      for (final media in widget.properties[neighbor].media.take(3)) {
         final url = media.thumbnailUrl ?? media.storagePath;
-        precacheImage(NetworkImage(url), context);
+        precacheImage(
+          NetworkImage(url),
+          context,
+          onError: (error, stackTrace) {},
+        );
       }
     }
   }
@@ -213,27 +232,37 @@ class _DiscoverFeedState extends ConsumerState<_DiscoverFeed> {
           controller: _controller,
           scrollDirection: Axis.vertical,
           onPageChanged: _onPageChanged,
+          // Ressort de fin de geste plus vif (voir SnappyPageScrollPhysics).
+          // `allowImplicitScrolling` améliore aussi la navigation VoiceOver/
+          // TalkBack (le geste de scroll implicite passe au bien suivant
+          // plutôt que d'essayer de scroller son contenu).
+          physics: const SnappyPageScrollPhysics(),
+          allowImplicitScrolling: true,
           itemCount: widget.properties.length,
           itemBuilder: (context, index) {
             final property = widget.properties[index];
-            return AnimatedBuilder(
-              animation: _controller,
-              builder: (context, child) {
-                final page = _controller.hasClients
-                    ? (_controller.page ?? _controller.initialPage.toDouble())
-                    : index.toDouble();
-                final distance = (page - index).abs().clamp(0.0, 1.0);
-                final scale = 1 - distance * 0.06;
-                return Transform.scale(scale: scale, child: child);
-              },
-              child: PropertyCard.feed(
-                key: ValueKey(property.id),
-                property: property,
-                isFavorite: favoriteIds.contains(property.id),
-                agency: widget.agenciesById[property.agencyId],
-                onTap: () => context.push('/property/${property.id}'),
-                onToggleFavorite: () => _handleToggleFavorite(property),
-                onShare: () => _handleShare(property),
+            // Isole le repaint de chaque carte : le scroll du PageView ne
+            // doit jamais forcer un repaint des cartes voisines.
+            return RepaintBoundary(
+              child: AnimatedBuilder(
+                animation: _controller,
+                builder: (context, child) {
+                  final page = _controller.hasClients
+                      ? (_controller.page ?? _controller.initialPage.toDouble())
+                      : index.toDouble();
+                  final distance = (page - index).abs().clamp(0.0, 1.0);
+                  final scale = 1 - distance * 0.06;
+                  return Transform.scale(scale: scale, child: child);
+                },
+                child: PropertyCard.feed(
+                  key: ValueKey(property.id),
+                  property: property,
+                  isFavorite: favoriteIds.contains(property.id),
+                  agency: widget.agenciesById[property.agencyId],
+                  onTap: () => context.push('/property/${property.id}'),
+                  onToggleFavorite: () => _handleToggleFavorite(property),
+                  onShare: () => _handleShare(property),
+                ),
               ),
             );
           },

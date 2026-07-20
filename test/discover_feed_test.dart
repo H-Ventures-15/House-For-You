@@ -102,6 +102,18 @@ void main() {
   });
 
   testWidgets(
+    'chaque carte du feed isole son repaint (RepaintBoundary dédié)',
+    (tester) async {
+      await mockNetworkImagesFor(() async {
+        await tester.pumpWidget(_wrap(const DiscoverScreen()));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(RepaintBoundary), findsWidgets);
+      });
+    },
+  );
+
+  testWidgets(
     'la barre de recherche se masque en avançant et réapparaît en reculant',
     (tester) async {
       await mockNetworkImagesFor(() async {
