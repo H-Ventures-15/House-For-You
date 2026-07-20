@@ -2,7 +2,7 @@
 
 > **Statut : vivant.** Ce document est la Bible produit de House For You. Toute fonctionnalité validée (code mergé sur `main`, testée) doit y être décrite avant le commit qui la clôt. Si ce document et le code divergent, c'est une anomalie à corriger immédiatement — pas une des deux sources qui « a raison ».
 >
-> Dernière mise à jour : 2026-07-20 (fin de l'étape 2.1 — voir [ROADMAP.md](ROADMAP.md)).
+> Dernière mise à jour : 2026-07-20 (fin de la sous-étape 2.2 — voir [ROADMAP.md](ROADMAP.md)).
 
 ---
 
@@ -116,16 +116,17 @@ Prévus étape 7. Le bouton « Contacter l'agence » existe déjà sur la fiche 
 
 Le cœur de l'expérience House For You. Un `PageView` vertical plein écran (`_DiscoverFeed` dans `discover_screen.dart`), un bien par page, physique de scroll personnalisée (`SnappyPageScrollPhysics`, voir [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md)) pour un settle rapide et sans rebond façon TikTok/Instagram.
 
-**Deux gestes, deux axes, jamais de conflit :**
+**Gestes du feed, chacun sur sa propre zone, jamais de conflit :**
 
 | Geste | Zone | Effet |
 |---|---|---|
 | Swipe vertical | Toute la carte | Bien suivant/précédent |
 | Swipe horizontal | Média (photo/vidéo) | Photo suivante/précédente dans la galerie du bien |
-| Double tap | Média uniquement | Ajoute/retire le favori, avec animation de cœur |
+| Double tap | Média uniquement | Ajoute/retire le favori, avec animation de cœur et retour haptique léger |
+| Appui long | Média uniquement | Masque temporairement le « chrome » (barre flottante, infos, indicateur photo, badge agence, rail favori/partager) pour voir le bien sans distraction ; tout réapparaît exactement comme avant au relâchement |
 | Tap simple | Bloc texte (prix/titre/description) uniquement | Ouvre la fiche détail |
 
-Cette séparation stricte des zones de gestes est une décision produit documentée dans [DECISIONS.md](DECISIONS.md).
+Cette séparation stricte des zones de gestes est une décision produit documentée dans [DECISIONS.md](DECISIONS.md). L'appui long ne masque jamais la bottom bar de navigation (voir [DECISIONS.md](DECISIONS.md) ADR-015), et aucune de ces actions n'est accessible uniquement par geste : un bouton favori et une zone d'ouverture de fiche restent visibles en permanence, tous deux porteurs de labels sémantiques pour les lecteurs d'écran (voir [UX_RULES.md](UX_RULES.md) section 16).
 
 **Chaque carte affiche** : galerie photo/vidéo plein écran avec indicateur de progression façon stories, dégradé de lisibilité à trois paliers, badge agence (logo + nom), prix, ville, type de bien, surface, chambres, salles de bain, description tronquée à 2 lignes + « Voir plus », boutons favori/partager avec ombre portée.
 
@@ -191,7 +192,7 @@ Voir section 8 ci-dessus et [TECH_ARCHITECTURE.md](TECH_ARCHITECTURE.md) pour le
 
 ## 12. Roadmap fonctionnelle
 
-Voir [ROADMAP.md](ROADMAP.md) pour le détail étape par étape avec statut, dates et commentaires. Résumé de l'état actuel : étapes 0, 1, 2 et 2.1 terminées (setup, navigation, feed + fiche + filtres, fluidité). Étape 3 (recherche guidée + résultats) non commencée.
+Voir [ROADMAP.md](ROADMAP.md) pour le détail étape par étape avec statut, dates et commentaires. Résumé de l'état actuel : étapes 0, 1, 2, 2.1 et 2.2 terminées (setup, navigation, feed + fiche + filtres, fluidité, gestes & interactions naturelles). Étape 3 (recherche guidée + résultats) non commencée.
 
 ## 13. Contraintes
 

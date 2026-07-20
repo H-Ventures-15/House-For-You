@@ -304,6 +304,7 @@ class _DetailBody extends StatelessWidget {
                   children: [
                     _RoundIconButton(
                       icon: Icons.arrow_back_rounded,
+                      semanticLabel: 'Retour au feed',
                       onTap: () => context.pop(),
                     ),
                     Row(
@@ -313,11 +314,15 @@ class _DetailBody extends StatelessWidget {
                               ? Icons.favorite
                               : Icons.favorite_border,
                           iconColor: isFavorite ? AppColors.error : null,
+                          semanticLabel: isFavorite
+                              ? 'Retirer des favoris'
+                              : 'Ajouter aux favoris',
                           onTap: onToggleFavorite,
                         ),
                         const SizedBox(width: AppSpacing.sm),
                         _RoundIconButton(
                           icon: Icons.share_outlined,
+                          semanticLabel: 'Partager ce bien',
                           onTap: onShare,
                         ),
                       ],
@@ -753,25 +758,35 @@ class _RoundIconButton extends StatelessWidget {
   const _RoundIconButton({
     required this.icon,
     required this.onTap,
+    required this.semanticLabel,
     this.iconColor,
   });
 
   final IconData icon;
   final VoidCallback onTap;
+  final String semanticLabel;
   final Color? iconColor;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(AppSpacing.sm),
-        decoration: const BoxDecoration(
-          color: Colors.white70,
-          shape: BoxShape.circle,
-          boxShadow: kFloatingButtonShadow,
+    return Semantics(
+      button: true,
+      label: semanticLabel,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.sm),
+          decoration: const BoxDecoration(
+            color: Colors.white70,
+            shape: BoxShape.circle,
+            boxShadow: kFloatingButtonShadow,
+          ),
+          child: Icon(
+            icon,
+            color: iconColor ?? AppColors.textPrimary,
+            size: 22,
+          ),
         ),
-        child: Icon(icon, color: iconColor ?? AppColors.textPrimary, size: 22),
       ),
     );
   }

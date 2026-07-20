@@ -4,7 +4,7 @@
 >
 > Légende État : ✅ Terminé · 🟡 En cours · ⬜ À faire
 >
-> Dernière mise à jour : 2026-07-20.
+> Dernière mise à jour : 2026-07-20 (sous-étape 2.2 — gestes & interactions naturelles).
 
 ---
 
@@ -42,8 +42,9 @@
 2. **Polish premium** (commit `3bbb3fe`, 2026-07-20) — barre de recherche flottante (verre dépoli, masquage animé au scroll), recherches enregistrées (mock), double tap like avec animation cœur, zones de gestes strictement séparées (média = like, texte = ouvrir la fiche), fermeture de fiche par swipe avec effet « balancer », ombres/dégradés/parallax.
 3. **Système de filtres premium** (commit `4461646`, 2026-07-20) — feuille plein écran type Airbnb (fond flouté), 14 sections (localisation, transaction, budget, type de bien, chambres/salles de bain, surfaces, PEB, caractéristiques, état du bien, date de publication, tri, ambiance de vie, recherches enregistrées, CTA), compteur de résultats réellement calculé sur les données mock, feed réellement filtré.
 4. **Sous-étape 2.1 — Fluidité du swipe façon TikTok** (commit `3c3759c`, 2026-07-20) — voir ci-dessous.
+5. **Sous-étape 2.2 — Gestes & interactions naturelles** (2026-07-20) — voir ci-dessous.
 
-**État** : ✅ Terminé (le périmètre initial et ses extensions successives sont livrés — étape formellement close avant de démarrer l'étape 3, à la demande explicite d'Hugo)
+**État** : ✅ Terminé (le périmètre initial et ses extensions successives sont livrés). L'étape avait été formellement close avant l'étape 3 puis rouverte une fois (sous-étape 2.2), les deux fois à la demande explicite d'Hugo — cohérent avec la règle « une seule étape à la fois » de [CLAUDE.md](../CLAUDE.md) puisqu'aucune extension n'a été anticipée sans validation.
 **Date** : 2026-07-19 → 2026-07-20
 **Commentaires** : deux bugs réels découverts et corrigés en cours d'étape (documentés dans les commits et [DECISIONS.md](DECISIONS.md)) — `PageView` du feed sans `scrollDirection: Axis.vertical` explicite, et feuille de filtres sans ancêtre `Material` (cassait `TextField`/`InkWell`). Les deux ont été détectés par les tests avant merge.
 
@@ -56,6 +57,20 @@
 **État** : ✅ Terminé
 **Date** : 2026-07-20
 **Commentaires** : piste explorée puis écartée documentée — `allowImplicitScrolling` a été activé en pensant qu'il pré-montait les pages voisines en mémoire ; vérification empirique (test dédié) a montré que cette option Flutter ne sert que l'accessibilité VoiceOver/TalkBack. Gardée pour ce bénéfice réel, mais la documentation a été corrigée pour ne pas laisser croire qu'elle explique la fluidité — voir [DECISIONS.md](DECISIONS.md).
+
+### Sous-étape 2.2 — Gestes & interactions naturelles
+
+**Objectif** : compléter la palette de gestes du feed pour qu'elle semble directement reliée au doigt, sans aucun conflit perceptible entre swipe vertical, swipe horizontal, double tap, appui long et ouverture de fiche.
+
+**Description** (désignée « Sprint 2.3 » dans la demande d'Hugo — numérotée ici comme sous-étape de l'Étape 2, dans la continuité de la sous-étape 2.1) :
+- **Appui long sur le média** — masque le chrome de la carte (gradient haut, bloc prix/titre/description, indicateur photo, badge agence, rail favori/partager) et la barre de recherche flottante, transition 180 ms ; restaure exactement l'état précédent au relâchement (pas un état forcé) ; la bottom bar n'est volontairement pas masquée (voir [DECISIONS.md](DECISIONS.md) ADR-015).
+- **Retour haptique léger** (`HapticFeedback.lightImpact()`) sur le double tap favori, uniquement quand l'action aboutit réellement.
+- **Labels sémantiques** sur les actions principales (favori, partager, ouvrir la fiche, retour) pour les lecteurs d'écran, sans jamais rendre une fonctionnalité dépendante exclusivement d'un geste.
+- Double tap (favori), tap simple sur le bloc texte (ouverture fiche), swipe horizontal (galerie), swipe vertical (feed) et fermeture de fiche par swipe droite existaient déjà depuis l'étape 2/2.1 — revérifiés et non modifiés (aucune régression).
+
+**État** : ✅ Terminé
+**Date** : 2026-07-20
+**Commentaires** : 5 tests ajoutés (masquage/restauration du chrome et de la barre flottante, non-déclenchement du favori/de l'ouverture de fiche pendant l'appui long, labels sémantiques, scroll vertical sans fermeture accidentelle de la fiche) — 30 tests au total désormais (voir [TECH_ARCHITECTURE.md](TECH_ARCHITECTURE.md) section 11). Aucune régression sur la fluidité de la sous-étape 2.1 (`SnappyPageScrollPhysics`, `RepaintBoundary`, `AutomaticKeepAliveClientMixin`, précache) — code non touché, tests correspondants toujours au vert.
 
 ---
 

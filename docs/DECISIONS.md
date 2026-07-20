@@ -2,7 +2,7 @@
 
 > **Statut : vivant.** Registre des décisions importantes (architecture, produit, UX, choix de packages). Format court : Contexte → Décision → Conséquences. **Toute règle d'[UX_RULES.md](UX_RULES.md) qui serait un jour cassée doit d'abord avoir une entrée ici expliquant pourquoi.** Les décisions ne se suppriment jamais, même remplacées — une décision remplacée reste tracée avec un renvoi vers celle qui la remplace.
 >
-> Dernière mise à jour : 2026-07-20.
+> Dernière mise à jour : 2026-07-20 (sous-étape 2.2 — gestes & interactions naturelles).
 
 ---
 
@@ -168,6 +168,22 @@
 **Justification** : respecte à la fois le principe produit (jamais de connexion forcée, voir [UX_RULES.md](UX_RULES.md) section 14) et la discipline de développement séquentiel (une seule étape à la fois, voir [CLAUDE.md](../CLAUDE.md)) — construire un écran de connexion maintenant aurait anticipé l'étape 5 sans validation.
 
 **Conséquences** : le jour où l'étape 5 sera développée, `requireAuth()` devra rediriger vers l'écran de connexion réel et redéclencher automatiquement l'action initiale après succès (déjà spécifié dans [PRODUCT_SPEC.md](PRODUCT_SPEC.md) section 8/[architecture-mvp.md](architecture-mvp.md) section 4) — pas encore implémenté.
+
+---
+
+## ADR-015 — L'appui long qui masque l'interface du feed ne masque jamais la bottom bar, et restaure l'état précédent (pas un état forcé) au relâchement
+
+**Contexte** : sous-étape 2.2 (gestes & interactions naturelles), la demande d'appui long pour masquer l'interface du feed (« voir le bien sans distraction ») listait explicitement la « navigation inférieure » parmi les éléments à masquer, « si cela reste cohérent avec l'architecture actuelle ».
+
+**Décision** : l'appui long masque tout le chrome propre à l'onglet Découvrir (barre de recherche flottante, gradient/indicateur photo/badge agence/bloc texte/rail favori-partager de la carte) mais **ne masque jamais la bottom bar à 4 onglets**.
+
+**Justification** : ce n'est pas cohérent avec l'architecture actuelle, pour deux raisons distinctes.
+1. **Règle produit déjà posée** ([UX_RULES.md](UX_RULES.md) section 11) : « Quatre onglets permanents, jamais masqués sauf sur une route de premier niveau explicitement plein écran (fiche détail). » L'onglet Découvrir est une branche du shell (`StatefulShellRoute`), pas une route plein écran de premier niveau — la masquer romprait cette règle sans qu'un besoin produit fort le justifie (le geste sert à dégager la vue du *bien*, pas à sortir de la navigation).
+2. **Frontière architecturale** ([TECH_ARCHITECTURE.md](TECH_ARCHITECTURE.md) section 2/3) : la bottom bar est rendue par `MainShell` (`lib/core/router/main_shell.dart`), un ancêtre du widget qui détecte l'appui long (`_FeedCard`, plusieurs niveaux plus bas dans l'arbre). La masquer aurait exigé un canal de communication ascendant supplémentaire (provider Riverpod dédié ou `InheritedWidget`) pour un geste local à un seul onglet — complexité non justifiée par le gain, alors que l'essentiel de l'objectif (« voir le bien sans distraction ») est déjà atteint en masquant le chrome de la carte et la barre flottante.
+
+**Détail technique complémentaire** : la barre de recherche flottante ne se contente pas de repasser à visible au relâchement — elle restaure exactement sa valeur de visibilité continue d'avant l'appui long (`_barVisibilityBeforeLongPress` dans `discover_screen.dart`), cohérent avec le principe déjà posé en ADR-006 (visibilité continue plutôt que show/hide binaire) : si l'utilisateur avait déjà fait défiler le feed vers le bas (barre masquée par le scroll) puis fait un appui long, la barre reste masquée après relâchement plutôt que de réapparaître puis se re-masquer.
+
+**Conséquences** : testé (`test/discover_feed_test.dart` — masquage/restauration de l'état précédent de la barre ; `test/property_card_gestures_test.dart` — masquage/restauration du chrome de la carte, non-déclenchement du double tap/de l'ouverture de fiche pendant l'appui). Si un besoin produit futur justifie de masquer aussi la bottom bar pendant l'appui long, ce sera un changement architectural à part entière (canal de communication shell ↔ feature) — pas une extension mineure de ce geste.
 
 ---
 

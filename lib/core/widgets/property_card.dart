@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show HapticFeedback;
 import '../../data/models/agency.dart';
 import '../../data/models/property.dart';
 import '../../data/models/property_media.dart';
@@ -19,6 +20,8 @@ class PropertyCard extends StatelessWidget {
     required VoidCallback this.onShare,
     this.agency,
     this.onContact,
+    this.onLongPressStart,
+    this.onLongPressEnd,
     super.key,
   }) : _variant = _PropertyCardVariant.feed;
 
@@ -31,7 +34,9 @@ class PropertyCard extends StatelessWidget {
     super.key,
   })  : _variant = _PropertyCardVariant.list,
         onShare = null,
-        agency = null;
+        agency = null,
+        onLongPressStart = null,
+        onLongPressEnd = null;
 
   final Property property;
   final bool isFavorite;
@@ -44,6 +49,12 @@ class PropertyCard extends StatelessWidget {
   final VoidCallback? onContact;
   final VoidCallback? onShare;
   final Agency? agency;
+
+  /// Appui long démarré/relâché sur le média — masque/réaffiche l'interface
+  /// (voir `_FeedCard`). `.list()` n'expose pas ce geste (pas de média plein
+  /// écran à dégager).
+  final VoidCallback? onLongPressStart;
+  final VoidCallback? onLongPressEnd;
   final _PropertyCardVariant _variant;
 
   String get _priceLabel => formatPropertyPrice(property);
@@ -64,6 +75,8 @@ class PropertyCard extends StatelessWidget {
         agency: agency,
         priceLabel: _priceLabel,
         subtitle: _subtitle,
+        onLongPressStart: onLongPressStart,
+        onLongPressEnd: onLongPressEnd,
       );
     }
     return _buildList();
@@ -189,41 +202,45 @@ class _FavoriteButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(AppSpacing.sm),
-        decoration: const BoxDecoration(
-          color: Colors.white70,
-          shape: BoxShape.circle,
-          boxShadow: kFloatingButtonShadow,
-        ),
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 220),
-          transitionBuilder: (child, animation) => ScaleTransition(
-            scale: TweenSequence<double>([
-              TweenSequenceItem(
-                tween: Tween(
-                  begin: 0.6,
-                  end: 1.25,
-                ).chain(CurveTween(curve: Curves.easeOutBack)),
-                weight: 60,
-              ),
-              TweenSequenceItem(
-                tween: Tween(
-                  begin: 1.25,
-                  end: 1.0,
-                ).chain(CurveTween(curve: Curves.easeOut)),
-                weight: 40,
-              ),
-            ]).animate(animation),
-            child: child,
+    return Semantics(
+      button: true,
+      label: isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris',
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.sm),
+          decoration: const BoxDecoration(
+            color: Colors.white70,
+            shape: BoxShape.circle,
+            boxShadow: kFloatingButtonShadow,
           ),
-          child: Icon(
-            isFavorite ? Icons.favorite : Icons.favorite_border,
-            key: ValueKey(isFavorite),
-            color: isFavorite ? AppColors.error : AppColors.textPrimary,
-            size: 20,
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 220),
+            transitionBuilder: (child, animation) => ScaleTransition(
+              scale: TweenSequence<double>([
+                TweenSequenceItem(
+                  tween: Tween(
+                    begin: 0.6,
+                    end: 1.25,
+                  ).chain(CurveTween(curve: Curves.easeOutBack)),
+                  weight: 60,
+                ),
+                TweenSequenceItem(
+                  tween: Tween(
+                    begin: 1.25,
+                    end: 1.0,
+                  ).chain(CurveTween(curve: Curves.easeOut)),
+                  weight: 40,
+                ),
+              ]).animate(animation),
+              child: child,
+            ),
+            child: Icon(
+              isFavorite ? Icons.favorite : Icons.favorite_border,
+              key: ValueKey(isFavorite),
+              color: isFavorite ? AppColors.error : AppColors.textPrimary,
+              size: 20,
+            ),
           ),
         ),
       ),
@@ -238,19 +255,23 @@ class _ShareButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(AppSpacing.sm),
-        decoration: const BoxDecoration(
-          color: Colors.white70,
-          shape: BoxShape.circle,
-          boxShadow: kFloatingButtonShadow,
-        ),
-        child: const Icon(
-          Icons.share_outlined,
-          color: AppColors.textPrimary,
-          size: 20,
+    return Semantics(
+      button: true,
+      label: 'Partager ce bien',
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.sm),
+          decoration: const BoxDecoration(
+            color: Colors.white70,
+            shape: BoxShape.circle,
+            boxShadow: kFloatingButtonShadow,
+          ),
+          child: const Icon(
+            Icons.share_outlined,
+            color: AppColors.textPrimary,
+            size: 20,
+          ),
         ),
       ),
     );
@@ -277,6 +298,8 @@ class _FeedCard extends StatefulWidget {
     required this.priceLabel,
     required this.subtitle,
     this.agency,
+    this.onLongPressStart,
+    this.onLongPressEnd,
   });
 
   final Property property;
@@ -287,6 +310,8 @@ class _FeedCard extends StatefulWidget {
   final String priceLabel;
   final String subtitle;
   final Agency? agency;
+  final VoidCallback? onLongPressStart;
+  final VoidCallback? onLongPressEnd;
 
   @override
   State<_FeedCard> createState() => _FeedCardState();
@@ -298,10 +323,21 @@ class _FeedCardState extends State<_FeedCard>
   // d'actions (favori/partager) ne le recouvre pas.
   static const double _actionRailBottomOffset = AppSpacing.xxl * 4;
 
+  // Transition rapide et douce (voir UX_RULES.md section 10 : 180-380 ms) —
+  // assez visible pour ne pas sembler brutale, assez courte pour rester
+  // "collée" au relâchement du doigt.
+  static const Duration _chromeFadeDuration = Duration(milliseconds: 180);
+
   final PageController _galleryController = PageController();
   int _photoIndex = 0;
   Offset? _likeBurstPosition;
   int _likeBurstId = 0;
+
+  /// `true` pendant un appui long actif sur le média — masque le "chrome"
+  /// (gradient, bloc infos, indicateur photo, badge agence, rail
+  /// favori/partager) pour ne laisser que le média. Voir UX_RULES.md
+  /// section 6 bis.
+  bool _isChromeHidden = false;
 
   @override
   bool get wantKeepAlive => true;
@@ -319,7 +355,27 @@ class _FeedCardState extends State<_FeedCard>
   void _handleDoubleTap() {
     final proceeded = widget.onToggleFavorite();
     if (!proceeded) return;
+    // Retour haptique léger, uniquement quand le favori a réellement changé
+    // — un appui bloqué par la porte d'authentification ne doit donner
+    // aucune impression que l'action a réussi (voir UX_RULES.md section 6).
+    HapticFeedback.lightImpact();
     setState(() => _likeBurstId++);
+  }
+
+  void _handleLongPressStart(LongPressStartDetails details) {
+    setState(() => _isChromeHidden = true);
+    widget.onLongPressStart?.call();
+  }
+
+  void _handleLongPressEnd(LongPressEndDetails details) {
+    setState(() => _isChromeHidden = false);
+    widget.onLongPressEnd?.call();
+  }
+
+  void _handleLongPressCancel() {
+    if (!_isChromeHidden) return;
+    setState(() => _isChromeHidden = false);
+    widget.onLongPressEnd?.call();
   }
 
   @override
@@ -335,151 +391,177 @@ class _FeedCardState extends State<_FeedCard>
           behavior: HitTestBehavior.opaque,
           onDoubleTapDown: _handleDoubleTapDown,
           onDoubleTap: _handleDoubleTap,
+          onLongPressStart: _handleLongPressStart,
+          onLongPressEnd: _handleLongPressEnd,
+          onLongPressCancel: _handleLongPressCancel,
           child: _Gallery(
             media: media,
             controller: _galleryController,
             onPageChanged: (index) => setState(() => _photoIndex = index),
           ),
         ),
-        // Assombrit légèrement le haut de l'image pour garder l'indicateur
-        // photo et le badge agence lisibles sur un ciel clair, par exemple.
-        const Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 110,
+        // Tout le "chrome" informatif au-dessus du média — masqué d'un bloc
+        // pendant l'appui long, jamais interactif tant qu'il est invisible
+        // (`IgnorePointer`) pour qu'un relâchement ne déclenche pas un tap
+        // fantôme sur un bouton qu'on ne voyait plus.
+        AnimatedOpacity(
+          key: const Key('feed-card-chrome'),
+          opacity: _isChromeHidden ? 0 : 1,
+          duration: _chromeFadeDuration,
+          curve: Curves.easeOut,
           child: IgnorePointer(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Color(0x66000000), Colors.transparent],
-                ),
-              ),
-            ),
-          ),
-        ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: widget.onTap,
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.lg,
-                AppSpacing.xxl * 1.5,
-                AppSpacing.lg,
-                AppSpacing.lg,
-              ),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  stops: [0, 0.55, 1],
-                  colors: [
-                    Colors.transparent,
-                    Color(0x99000000),
-                    AppColors.overlayScrim,
-                  ],
-                ),
-              ),
-              child: SafeArea(
-                top: false,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      widget.priceLabel,
-                      style: AppTypography.titleMedium.copyWith(
-                        color: Colors.white,
-                        shadows: kOverlayTextShadow,
+            ignoring: _isChromeHidden,
+            child: Stack(
+              children: [
+                // Assombrit légèrement le haut de l'image pour garder
+                // l'indicateur photo et le badge agence lisibles sur un
+                // ciel clair, par exemple.
+                const Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: 110,
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Color(0x66000000), Colors.transparent],
+                        ),
                       ),
                     ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      widget.subtitle,
-                      style: AppTypography.bodySecondary.copyWith(
-                        color: Colors.white70,
-                        shadows: kOverlayTextShadow,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    _StatsRow(property: property),
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(
-                      property.description,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.bodySecondary.copyWith(
-                        color: Colors.white70,
-                        shadows: kOverlayTextShadow,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Voir plus',
-                      style: AppTypography.bodySecondary.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                        shadows: kOverlayTextShadow,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-        if (media.length > 1)
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: IgnorePointer(
-              child: SafeArea(
-                bottom: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.sm,
-                    AppSpacing.sm,
-                    AppSpacing.sm,
-                    0,
-                  ),
-                  child: _PhotoIndicator(
-                    count: media.length,
-                    currentIndex: _photoIndex,
                   ),
                 ),
-              ),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Semantics(
+                    button: true,
+                    label: 'Ouvrir la fiche du bien : ${widget.priceLabel}, '
+                        '${widget.subtitle}',
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: widget.onTap,
+                      child: Container(
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.lg,
+                          AppSpacing.xxl * 1.5,
+                          AppSpacing.lg,
+                          AppSpacing.lg,
+                        ),
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            stops: [0, 0.55, 1],
+                            colors: [
+                              Colors.transparent,
+                              Color(0x99000000),
+                              AppColors.overlayScrim,
+                            ],
+                          ),
+                        ),
+                        child: SafeArea(
+                          top: false,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                widget.priceLabel,
+                                style: AppTypography.titleMedium.copyWith(
+                                  color: Colors.white,
+                                  shadows: kOverlayTextShadow,
+                                ),
+                              ),
+                              const SizedBox(height: AppSpacing.xs),
+                              Text(
+                                widget.subtitle,
+                                style: AppTypography.bodySecondary.copyWith(
+                                  color: Colors.white70,
+                                  shadows: kOverlayTextShadow,
+                                ),
+                              ),
+                              const SizedBox(height: AppSpacing.sm),
+                              _StatsRow(property: property),
+                              const SizedBox(height: AppSpacing.sm),
+                              Text(
+                                property.description,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTypography.bodySecondary.copyWith(
+                                  color: Colors.white70,
+                                  shadows: kOverlayTextShadow,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Voir plus',
+                                style: AppTypography.bodySecondary.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                  shadows: kOverlayTextShadow,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                if (media.length > 1)
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: IgnorePointer(
+                      child: SafeArea(
+                        bottom: false,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.sm,
+                            AppSpacing.sm,
+                            AppSpacing.sm,
+                            0,
+                          ),
+                          child: _PhotoIndicator(
+                            count: media.length,
+                            currentIndex: _photoIndex,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                if (widget.agency != null)
+                  Positioned(
+                    left: AppSpacing.md,
+                    top: media.length > 1 ? AppSpacing.xxl : AppSpacing.md,
+                    child: IgnorePointer(
+                      child: SafeArea(
+                        bottom: false,
+                        child: _AgencyBadge(agency: widget.agency!),
+                      ),
+                    ),
+                  ),
+                Positioned(
+                  right: AppSpacing.md,
+                  bottom: _actionRailBottomOffset,
+                  child: Column(
+                    children: [
+                      _FavoriteButton(
+                        isFavorite: widget.isFavorite,
+                        onTap: widget.onToggleFavorite,
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      _ShareButton(onTap: widget.onShare),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ),
-        if (widget.agency != null)
-          Positioned(
-            left: AppSpacing.md,
-            top: media.length > 1 ? AppSpacing.xxl : AppSpacing.md,
-            child: IgnorePointer(
-              child: SafeArea(
-                bottom: false,
-                child: _AgencyBadge(agency: widget.agency!),
-              ),
-            ),
-          ),
-        Positioned(
-          right: AppSpacing.md,
-          bottom: _actionRailBottomOffset,
-          child: Column(
-            children: [
-              _FavoriteButton(
-                isFavorite: widget.isFavorite,
-                onTap: widget.onToggleFavorite,
-              ),
-              const SizedBox(height: AppSpacing.md),
-              _ShareButton(onTap: widget.onShare),
-            ],
           ),
         ),
         if (_likeBurstPosition != null)

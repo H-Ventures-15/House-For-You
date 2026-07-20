@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart' show kLongPressTimeout, kPressTimeout;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -5,6 +6,8 @@ import 'package:house_for_you/core/widgets/floating_search_bar.dart';
 import 'package:house_for_you/data/datasources/mock/mock_property_data.dart';
 import 'package:house_for_you/features/discover/discover_screen.dart';
 import 'package:network_image_mock/network_image_mock.dart';
+
+final _longPressDuration = kLongPressTimeout + kPressTimeout;
 
 Widget _wrap(Widget child) {
   return ProviderScope(child: MaterialApp(home: child));
@@ -140,6 +143,37 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(tester.widget<Opacity>(find.byType(Opacity)).opacity, 1.0);
+      });
+    },
+  );
+
+  testWidgets(
+    'appui long sur le média masque la barre flottante puis restaure '
+    'exactement son état précédent (pas forcée à visible)',
+    (tester) async {
+      await mockNetworkImagesFor(() async {
+        await tester.pumpWidget(_wrap(const DiscoverScreen()));
+        await tester.pumpAndSettle();
+
+        // Fait défiler d'une page pile pour masquer complètement la barre.
+        await tester.drag(
+          find.byKey(const Key('discover-feed')),
+          const Offset(0, -600),
+        );
+        await tester.pumpAndSettle();
+        expect(tester.widget<Opacity>(find.byType(Opacity)).opacity, 0.0);
+
+        final gesture = await tester.startGesture(const Offset(400, 120));
+        await tester.pump(_longPressDuration);
+        // Toujours masquée pendant l'appui long (déjà le cas avant).
+        expect(tester.widget<Opacity>(find.byType(Opacity)).opacity, 0.0);
+
+        await gesture.up();
+        await tester.pump();
+
+        // Reste masquée après relâchement : l'état précédent (masquée) est
+        // restauré, jamais forcé à visible.
+        expect(tester.widget<Opacity>(find.byType(Opacity)).opacity, 0.0);
       });
     },
   );

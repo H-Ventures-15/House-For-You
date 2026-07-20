@@ -2,7 +2,7 @@
 
 > **Statut : vivant.** Ce document liste toutes les règles d'expérience utilisateur non négociables. **Aucune règle ici ne doit être cassée sans qu'une entrée correspondante soit ajoutée à [DECISIONS.md](DECISIONS.md) expliquant pourquoi.** Si le code et ce document divergent, le document doit être corrigé dans le même commit que le changement.
 >
-> Dernière mise à jour : 2026-07-20.
+> Dernière mise à jour : 2026-07-20 (sous-étape 2.2 — gestes & interactions naturelles).
 
 ---
 
@@ -41,8 +41,18 @@ House For You vise la sensation d'une application Apple ou Airbnb — minimalist
 
 - Sur le **média uniquement** (photo/vidéo) d'une carte du feed — jamais sur le bloc texte (prix/titre/description).
 - Ajoute le bien aux favoris s'il n'y est pas, le retire s'il y est déjà (même sémantique que le bouton cœur).
-- Déclenche systématiquement une animation de cœur (rebond puis fondu), sauf si l'action est bloquée par la porte d'authentification (invité) — dans ce cas, seul le message de connexion s'affiche, aucune animation ne doit laisser croire que l'action a réussi.
+- Déclenche systématiquement une animation de cœur (rebond puis fondu) **et un retour haptique léger** (`HapticFeedback.lightImpact()`), sauf si l'action est bloquée par la porte d'authentification (invité) — dans ce cas, ni l'animation ni le haptique ne se déclenchent, seul le message de connexion s'affiche, pour ne jamais laisser croire que l'action a réussi.
 - La séparation stricte des zones de geste (média = like, texte = ouvrir la fiche) est **testée** (`test/property_card_gestures_test.dart`) — toute évolution de `PropertyCard.feed` doit préserver ces tests ou les mettre à jour consciemment.
+
+## 6 bis. Appui long (masquer l'interface)
+
+- Sur le **média uniquement** d'une carte du feed — jamais sur le bloc texte, qui garde son seul rôle d'ouverture de la fiche.
+- Masque, le temps de l'appui, tout le « chrome » informatif au-dessus du média : gradient de lisibilité du haut, indicateur photo (stories), badge agence, bloc prix/titre/description, rail favori/partager, **et la barre de recherche flottante** (`discover_screen.dart`). Ne laisse visible que la photo/vidéo en cours.
+- **La bottom bar (4 onglets) n'est jamais masquée par ce geste** — écart assumé par rapport à une lecture large de la demande initiale, documenté en [DECISIONS.md](DECISIONS.md) ADR-015 : la bottom bar appartient à la coquille de navigation (`MainShell`), hors du périmètre de l'onglet Découvrir, et la section 11 ci-dessous interdit déjà de la masquer hors d'une route de premier niveau explicitement plein écran (ce que Découvrir n'est pas).
+- Transition rapide et douce (180 ms, `Curves.easeOut`) à la disparition comme à la réapparition — jamais un `setState` qui fait « sauter » les éléments (voir section 10).
+- Au relâchement, chaque élément masqué réapparaît **exactement dans l'état où il était avant l'appui** — en particulier la barre de recherche flottante retrouve sa valeur de visibilité continue précédente (voir [DECISIONS.md](DECISIONS.md) ADR-006), pas une réapparition forcée à 100 % si elle était déjà partiellement masquée par le scroll.
+- Aucun élément masqué ne reste interactif pendant qu'il est invisible (`IgnorePointer`) — un relâchement ne doit jamais déclencher un tap fantôme sur un bouton qu'on ne voyait plus.
+- Un appui long ne déclenche jamais un double tap, un swipe (changement de bien/photo) ni l'ouverture de la fiche — l'arène de gestes Flutter les désambiguïse nativement (un mouvement du doigt avant le délai de reconnaissance cède la place au swipe ; un appui reconnu comme long ne peut plus redevenir un double tap).
 
 ## 7. Ouverture de la fiche détail
 
@@ -55,6 +65,8 @@ House For You vise la sensation d'une application Apple ou Airbnb — minimalist
 - Effet « balancer » : translation + légère rotation autour du bord gauche, suivi du doigt en direct (1:1), seuil de distance (32 % de la largeur d'écran) ou de vitesse avant confirmation de fermeture.
 - **Jamais de fond blanc pendant le geste** : la route est non opaque (`opaque: false`) et le feed déjà chargé en dessous transparaît directement à mesure que la fiche s'écarte — comme si la fiche flottait au-dessus du feed, jamais comme un écran qui se recharge.
 - Après fermeture, retour exact au même bien dans le feed, swipe vertical immédiatement fonctionnel (aucun état résiduel du geste de fermeture ne doit persister).
+- Le scroll vertical du contenu de la fiche (`CustomScrollView`) et le swipe horizontal de fermeture sont sur des axes opposés — même principe d'indépendance native que le swipe vertical/horizontal du feed (voir [DECISIONS.md](DECISIONS.md) ADR-002) : aucun scroll vertical, aussi rapide soit-il, ne déclenche une fermeture accidentelle.
+- Le bouton retour visible (coin supérieur gauche) et le retour matériel/système (bouton Android, `Navigator.pop` standard) fonctionnent toujours, indépendamment du swipe interactif — ce sont trois chemins de fermeture distincts vers la même action.
 
 ## 9. Bottom Sheet (filtres, recherches enregistrées)
 
@@ -99,6 +111,12 @@ Le détail des couleurs, typographies, espacements, rayons, ombres et composants
 - Précache systématique des médias adjacents (bien précédent/suivant dans le feed) — voir [TECH_ARCHITECTURE.md](TECH_ARCHITECTURE.md) section « Préchargement ».
 - `RepaintBoundary` autour de tout élément coûteux répété dans une liste/feed.
 - Aucun appel réseau ou calcul lourd ne doit bloquer le thread principal pendant un geste actif (drag, animation).
+
+## 16. Accessibilité
+
+- **Aucune fonctionnalité ne doit dépendre exclusivement d'un geste.** Chaque action atteignable par un geste (double tap, appui long) reste aussi atteignable par un élément visible et statique : bouton favori toujours affiché (rail d'actions du feed, fiche détail), bloc texte toujours tapable pour ouvrir la fiche, bouton retour toujours affiché en fiche détail.
+- Les boutons et zones tactiles principaux (favori, partager, ouvrir la fiche, retour) portent un label sémantique explicite (`Semantics(button: true, label: ...)`) pour les lecteurs d'écran (VoiceOver/TalkBack) — voir `lib/core/widgets/property_card.dart` et `lib/features/discover/property_detail_screen.dart`.
+- `allowImplicitScrolling: true` sur les `PageView` du feed et des galeries reste actif pour son bénéfice réel d'accessibilité (navigation VoiceOver/TalkBack) — voir [DECISIONS.md](DECISIONS.md) ADR-007.
 
 ---
 

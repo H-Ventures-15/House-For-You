@@ -2,7 +2,7 @@
 
 > **Statut : vivant.** Source de vérité technique du projet. Supersède la partie architecture d'[architecture-mvp.md](architecture-mvp.md) (conservé comme document historique du cahier des charges initial — voir note en tête de ce fichier). Toute évolution structurelle (nouveau dossier, nouveau pattern, nouvelle dépendance) doit être reflétée ici avant le commit qui l'introduit.
 >
-> Dernière mise à jour : 2026-07-20 (fin de l'étape 2.1).
+> Dernière mise à jour : 2026-07-20 (fin de la sous-étape 2.2).
 
 ---
 
@@ -152,18 +152,26 @@ Objet non persisté, construit par la feuille de filtres (étape 2) et, plus tar
 - **`SnappyPageScrollPhysics`** (`lib/core/widgets/snappy_page_physics.dart`) — ressort de fin de geste personnalisé (`mass: 0.3, stiffness: 180, ratio: 1`) appliqué au feed vertical, à la galerie photo de chaque carte et à la galerie de la fiche détail.
 - **`allowImplicitScrolling: true`** sur les mêmes trois `PageView` — améliore la navigation VoiceOver/TalkBack. Vérifié empiriquement (test dédié, `test/snappy_page_physics_test.dart` + investigation documentée dans le commit `3c3759c`) que cette option ne pré-monte **pas** réellement les pages voisines en mémoire malgré son nom — ce n'est pas le mécanisme qui explique la fluidité, gardé uniquement pour son bénéfice d'accessibilité réel.
 
+## 10 bis. Gestes du feed (sous-étape 2.2)
+
+- **Appui long sur le média** (`_FeedCard`, `lib/core/widgets/property_card.dart`) — `onLongPressStart`/`onLongPressEnd`/`onLongPressCancel` sur le même `GestureDetector` que le double tap (au-dessus de `_Gallery`). Un seul `AnimatedOpacity` (clé `feed-card-chrome`) enveloppé d'un `IgnorePointer` regroupe tout le chrome de la carte (gradient haut, bloc infos, indicateur photo, badge agence, rail favori/partager) : un seul point de bascule plutôt qu'un état dupliqué par élément.
+- `PropertyCard.feed` expose `onLongPressStart`/`onLongPressEnd` (optionnels, absents sur `.list()`) pour que `DiscoverScreen` masque aussi la barre de recherche flottante en synchronisant `_barVisibility` — la valeur *précédente* est sauvegardée avant le masquage et restaurée telle quelle au relâchement (pas une réapparition forcée), cohérent avec le mécanisme de visibilité continue déjà en place (voir ADR-006).
+- **Retour haptique** (`HapticFeedback.lightImpact()`, `flutter/services.dart`) déclenché dans `_handleDoubleTap` uniquement quand `onToggleFavorite()` aboutit réellement (pas bloqué par `requireAuth()`).
+- **Accessibilité** : `Semantics(button: true, label: ...)` sur les boutons favori/partager (`property_card.dart`), la zone d'ouverture de fiche (`property_card.dart`), et les boutons retour/favori/partage de la fiche détail (`_RoundIconButton`, `property_detail_screen.dart`).
+- La bottom bar (`MainShell`) n'est volontairement pas masquée par ce geste — voir [DECISIONS.md](DECISIONS.md) ADR-015 pour la justification architecturale (frontière shell/feature) et produit (UX_RULES.md section 11).
+
 ## 11. Tests
 
-7 fichiers, ~25 tests (`flutter test`). Conventions : voir [CONTRIBUTING.md](CONTRIBUTING.md).
+7 fichiers, 30 tests (`flutter test`). Conventions : voir [CONTRIBUTING.md](CONTRIBUTING.md).
 
 | Fichier | Couvre |
 |---|---|
 | `mock_data_test.dart` | Intégrité des données mock (agences référencées, photos de couverture, round-trip JSON) |
 | `main_shell_test.dart` | Navigation 4 onglets |
-| `discover_feed_test.dart` | Indépendance swipe vertical/horizontal, barre flottante, feuille de filtres, recherches enregistrées, `RepaintBoundary` |
-| `property_card_gestures_test.dart` | Séparation stricte des zones de geste (média = like, texte = ouvrir la fiche) |
+| `discover_feed_test.dart` | Indépendance swipe vertical/horizontal, barre flottante (masquage/réapparition au scroll et à l'appui long, état précédent restauré), feuille de filtres, recherches enregistrées, `RepaintBoundary` |
+| `property_card_gestures_test.dart` | Séparation stricte des zones de geste (média = like/appui long, texte = ouvrir la fiche), masquage/restauration du chrome à l'appui long, non-déclenchement du favori/de la fiche pendant l'appui long, labels sémantiques |
 | `property_detail_test.dart` | Contenu de la fiche détail, porte d'authentification |
-| `property_detail_dismiss_test.dart` | Fermeture par swipe (seuil de confirmation) |
+| `property_detail_dismiss_test.dart` | Fermeture par swipe (seuil de confirmation), scroll vertical du contenu sans fermeture accidentelle |
 | `snappy_page_physics_test.dart` | Tuning du ressort personnalisé |
 
 `network_image_mock` est requis dans tout test qui rend un `Image.network` — sans lui, `flutter test` bloque toutes les requêtes HTTP et fait échouer le test avec un timer en attente (voir [CONTRIBUTING.md](CONTRIBUTING.md)).

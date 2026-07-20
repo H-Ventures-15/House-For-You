@@ -1,9 +1,12 @@
-import 'package:flutter/gestures.dart' show kDoubleTapTimeout;
+import 'package:flutter/gestures.dart'
+    show kDoubleTapTimeout, kLongPressTimeout, kPressTimeout;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:house_for_you/core/widgets/property_card.dart';
 import 'package:house_for_you/data/datasources/mock/mock_property_data.dart';
 import 'package:network_image_mock/network_image_mock.dart';
+
+final _longPressDuration = kLongPressTimeout + kPressTimeout;
 
 /// Vérifie la séparation stricte des zones de gestes sur la carte feed :
 /// le média (haut) répond au double tap (favori), le bloc texte (bas)
@@ -119,4 +122,100 @@ void main() {
       expect(toggleCount, 0);
     });
   });
+
+  testWidgets(
+    'appui long sur le média masque le chrome puis le restaure au relâchement',
+    (tester) async {
+      await mockNetworkImagesFor(() async {
+        var startCalls = 0;
+        var endCalls = 0;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: PropertyCard.feed(
+                property: property,
+                isFavorite: false,
+                onTap: () {},
+                onToggleFavorite: () => true,
+                onShare: () {},
+                onLongPressStart: () => startCalls++,
+                onLongPressEnd: () => endCalls++,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final chromeFinder = find.byKey(const Key('feed-card-chrome'));
+        expect(tester.widget<AnimatedOpacity>(chromeFinder).opacity, 1.0);
+
+        final gesture = await tester.startGesture(const Offset(400, 120));
+        await tester.pump(_longPressDuration);
+
+        expect(startCalls, 1);
+        expect(endCalls, 0);
+        expect(tester.widget<AnimatedOpacity>(chromeFinder).opacity, 0.0);
+
+        await gesture.up();
+        await tester.pump();
+
+        expect(endCalls, 1);
+        expect(tester.widget<AnimatedOpacity>(chromeFinder).opacity, 1.0);
+        // Laisse le fondu de réapparition (180ms) se terminer.
+        await tester.pumpAndSettle();
+      });
+    },
+  );
+
+  testWidgets(
+    'un appui long ne déclenche ni le favori (double tap) ni l\'ouverture '
+    'de la fiche',
+    (tester) async {
+      await mockNetworkImagesFor(() async {
+        var tapped = false;
+        var toggleCount = 0;
+        await tester.pumpWidget(
+          buildCard(
+            onTap: () => tapped = true,
+            onToggleFavorite: () {
+              toggleCount++;
+              return true;
+            },
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final gesture = await tester.startGesture(const Offset(400, 120));
+        await tester.pump(_longPressDuration);
+        await gesture.up();
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        expect(tapped, isFalse);
+        expect(toggleCount, 0);
+      });
+    },
+  );
+
+  testWidgets(
+    'le bouton favori et la zone d\'ouverture de fiche portent des labels '
+    'sémantiques',
+    (tester) async {
+      final handle = tester.ensureSemantics();
+      await mockNetworkImagesFor(() async {
+        await tester.pumpWidget(
+          buildCard(onTap: () {}, onToggleFavorite: () => true),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.bySemanticsLabel('Ajouter aux favoris'), findsOneWidget);
+        expect(find.bySemanticsLabel('Partager ce bien'), findsOneWidget);
+        expect(
+          find.bySemanticsLabel(RegExp(r'^Ouvrir la fiche du bien')),
+          findsOneWidget,
+        );
+      });
+      handle.dispose();
+    },
+  );
 }

@@ -4,7 +4,7 @@
 >
 > Source de vérité technique : `lib/core/theme/` et `lib/core/widgets/`. Ce document explique le *pourquoi* et sert de référence rapide ; en cas de divergence, le code fait foi et ce document doit être corrigé dans la foulée.
 >
-> Dernière mise à jour : 2026-07-20.
+> Dernière mise à jour : 2026-07-20 (sous-étape 2.2 — gestes & interactions naturelles).
 
 ---
 
@@ -100,6 +100,7 @@ Aucune autre ombre libre ne doit apparaître dans le code — étendre `kFloatin
 | Feuille de filtres/recherches enregistrées | Flou + assombrissement progressifs du fond, glissement depuis le bas, `easeOutCubic` (ouverture) / `easeInCubic` (fermeture), 380/260 ms | `lib/core/widgets/blurred_modal_sheet.dart` |
 | Barre de recherche flottante | Opacité + translation verticale liées en continu à la position de scroll du feed (pas de show/hide binaire), recalée sur 0/1 dès qu'une page est franchie | `discover_screen.dart` |
 | Indicateur photo (stories) | `AnimatedContainer` 200 ms sur chaque segment | `property_card.dart` (`_PhotoIndicator`) |
+| Masquage de l'interface à l'appui long | `AnimatedOpacity` 180 ms, `Curves.easeOut`, sur l'ensemble du chrome de la carte (regroupé en un seul widget) et sur la barre flottante (réutilise sa visibilité continue existante) | `property_card.dart` (`_FeedCardState`), `discover_screen.dart` |
 
 Règle transversale : toute transition respecte l'esprit Material 3 tout en visant une sensation proche d'iOS — courbes `easeOut*`/`easeIn*` privilégiées, jamais `Curves.linear` pour une animation perceptible par l'utilisateur.
 

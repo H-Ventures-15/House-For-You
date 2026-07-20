@@ -88,4 +88,49 @@ void main() {
       expect(find.byType(PropertyDetailScreen), findsOneWidget);
     });
   });
+
+  testWidgets(
+    'un scroll vertical dans le contenu de la fiche ne la ferme jamais',
+    (tester) async {
+      await mockNetworkImagesFor(() async {
+        final router = GoRouter(
+          initialLocation: '/discover',
+          routes: [
+            GoRoute(
+              path: '/discover',
+              builder: (context, state) =>
+                  const Scaffold(body: Center(child: Text('FEED'))),
+            ),
+            GoRoute(
+              path: '/property/:id',
+              builder: (context, state) => PropertyDetailScreen(
+                propertyId: state.pathParameters['id']!,
+              ),
+            ),
+          ],
+        );
+
+        await tester.pumpWidget(
+          ProviderScope(child: MaterialApp.router(routerConfig: router)),
+        );
+        await tester.pumpAndSettle();
+
+        router.push('/property/prop-1');
+        await tester.pumpAndSettle();
+
+        // Même geste rapide, répété, purement vertical (sous la galerie,
+        // zone où vit aussi le détecteur de fermeture horizontal) : l'axe
+        // opposé au geste de fermeture ne doit jamais le déclencher (voir
+        // UX_RULES.md section 8, même principe d'indépendance que ADR-002).
+        await tester.fling(
+          find.byType(CustomScrollView),
+          const Offset(0, -300),
+          2000,
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byType(PropertyDetailScreen), findsOneWidget);
+      });
+    },
+  );
 }

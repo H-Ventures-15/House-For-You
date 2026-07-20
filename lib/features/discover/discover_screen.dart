@@ -93,6 +93,12 @@ class _DiscoverFeedState extends ConsumerState<_DiscoverFeed> {
   double? _lastRawPage;
   int _lastSettledIndex = 0;
 
+  /// Valeur de `_barVisibility` juste avant un appui long sur le média de
+  /// la carte visible — restaurée telle quelle au relâchement (et non
+  /// remise à 1) pour respecter l'état de scroll dans lequel se trouvait
+  /// déjà la barre (voir UX_RULES.md section 6 bis).
+  double? _barVisibilityBeforeLongPress;
+
   @override
   void initState() {
     super.initState();
@@ -212,6 +218,16 @@ class _DiscoverFeedState extends ConsumerState<_DiscoverFeed> {
     showFiltersSheet(context);
   }
 
+  void _handleLongPressStart() {
+    _barVisibilityBeforeLongPress = _barVisibility.value;
+    _barVisibility.value = 0;
+  }
+
+  void _handleLongPressEnd() {
+    _barVisibility.value = _barVisibilityBeforeLongPress ?? 1;
+    _barVisibilityBeforeLongPress = null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final favoriteIds = ref.watch(favoritesControllerProvider);
@@ -262,6 +278,8 @@ class _DiscoverFeedState extends ConsumerState<_DiscoverFeed> {
                   onTap: () => context.push('/property/${property.id}'),
                   onToggleFavorite: () => _handleToggleFavorite(property),
                   onShare: () => _handleShare(property),
+                  onLongPressStart: _handleLongPressStart,
+                  onLongPressEnd: _handleLongPressEnd,
                 ),
               ),
             );

@@ -8,6 +8,21 @@
 
 ## [Non publié] — 0.1.0
 
+### 2026-07-20 — Gestes & interactions naturelles (sous-étape 2.2 / « Sprint 2.3 »)
+
+**Ajouts**
+- Appui long sur le média d'une carte du feed : masque le chrome (gradient haut, bloc prix/titre/description, indicateur photo, badge agence, rail favori/partager) et la barre de recherche flottante, transition 180 ms ; tout réapparaît exactement dans l'état précédent au relâchement (`lib/core/widgets/property_card.dart`, `lib/features/discover/discover_screen.dart`).
+- Retour haptique léger (`HapticFeedback.lightImpact()`) sur le double tap favori, uniquement quand l'action aboutit.
+- Labels sémantiques (`Semantics(button: true, label: ...)`) sur les boutons favori/partager, la zone d'ouverture de fiche et les boutons de la fiche détail (retour/favori/partage), pour les lecteurs d'écran.
+- Tests : `test/property_card_gestures_test.dart` (masquage/restauration du chrome à l'appui long, non-déclenchement du favori/de l'ouverture de fiche pendant l'appui, labels sémantiques), `test/discover_feed_test.dart` (restauration de l'état précédent de la barre flottante après un appui long), `test/property_detail_dismiss_test.dart` (scroll vertical du contenu de la fiche sans fermeture accidentelle).
+
+**Non modifié (revérifié sans régression)**
+- Double tap favori, tap simple sur le bloc texte, swipe horizontal (galerie), swipe vertical (feed), fermeture de fiche par swipe droite : gestes déjà livrés à l'étape 2/2.1, comportement et tests inchangés.
+- Fluidité de la sous-étape 2.1 (`SnappyPageScrollPhysics`, `RepaintBoundary`, `AutomaticKeepAliveClientMixin`, précache des médias voisins) : code non touché.
+
+**Décision produit**
+- La bottom bar de navigation n'est pas masquée par l'appui long (conflit avec une règle UX déjà posée et frontière architecturale shell/feature) — voir [DECISIONS.md](DECISIONS.md) ADR-015.
+
 ### 2026-07-20 — Documentation officielle
 
 **Ajouts**
