@@ -135,13 +135,10 @@ class _PropertyDetailScreenState extends ConsumerState<PropertyDetailScreen>
         );
   }
 
+  // Les favoris sont accessibles sans compte tant que la synchronisation
+  // Supabase (étape 5/6) n'existe pas (voir DECISIONS.md) — contrairement au
+  // contact agence (`_handleContact` ci-dessous), qui reste protégé.
   void _handleToggleFavorite(Property property) {
-    final granted = requireAuth(
-      context,
-      ref,
-      message: 'Connecte-toi pour ajouter ce bien à tes favoris',
-    );
-    if (!granted) return;
     ref.read(favoritesControllerProvider.notifier).toggle(property.id);
   }
 

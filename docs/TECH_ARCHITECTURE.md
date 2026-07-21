@@ -2,7 +2,7 @@
 
 > **Statut : vivant.** Source de vérité technique du projet. Supersède la partie architecture d'[architecture-mvp.md](architecture-mvp.md) (conservé comme document historique du cahier des charges initial — voir note en tête de ce fichier). Toute évolution structurelle (nouveau dossier, nouveau pattern, nouvelle dépendance) doit être reflétée ici avant le commit qui l'introduit.
 >
-> Dernière mise à jour : 2026-07-21 (fin de la sous-étape 2.4 — micro-interactions premium & corrections UX).
+> Dernière mise à jour : 2026-07-21 (correctif rapide post-Sprint 2.5 — favoris sans compte, fermeture des filtres assouplie).
 
 ---
 
@@ -17,6 +17,7 @@
 | i18n | `flutter_localizations` + `.arb` (`intl ^0.20.2`) | fr rempli, nl/en présents |
 | Config environnement | `flutter_dotenv ^5.1.0` | `.env` jamais commité, clé `anon` uniquement |
 | Partage natif | `share_plus ^13.2.1` | — |
+| Persistance locale | `shared_preferences ^2.5.5` | Favoris invité (voir [DECISIONS.md](DECISIONS.md) ADR-023), jusqu'à la synchronisation Supabase (étape 5/6) |
 | Tests | `flutter_test`, `network_image_mock ^2.1.1`, `mockito` (dev) | — |
 | Lint | `flutter_lints ^4.0.0` | règles renforcées, voir `analysis_options.yaml` |
 
@@ -74,7 +75,7 @@ lib/
 │   ├── discover/                      # feed (implémenté) + fiche détail (implémenté) + filtres (implémenté)
 │   │   └── filters/                   # feuille de filtres et ses sous-composants
 │   ├── search/                        # placeholder — étape 3
-│   ├── favorites/                     # placeholder invité — étape 6
+│   ├── favorites/                     # liste réelle, accès invité (étape 6 = sync multi-appareil)
 │   └── profile/                       # placeholder invité — étape 8
 │
 └── l10n/                              # app_fr.arb (rempli), app_nl.arb / app_en.arb (présents, vides)
@@ -105,7 +106,7 @@ lib/
 |---|---|---|
 | `PropertyRepository` | `MockPropertyDataSource` | `propertyRepositoryProvider` |
 | `AgencyRepository` | `MockAgencyDataSource` | `agencyRepositoryProvider` |
-| `FavoritesRepository` | `MockFavoritesDataSource` | `favoritesRepositoryProvider` |
+| `FavoritesRepository` | `MockFavoritesDataSource` (persistance `SharedPreferences`, voir [DECISIONS.md](DECISIONS.md) ADR-023) | `favoritesRepositoryProvider` |
 | `LeadsRepository` | `MockLeadsDataSource` | `leadsRepositoryProvider` |
 | `SavedSearchesRepository` | `MockSavedSearchesDataSource` | `savedSearchesRepositoryProvider` |
 | `AnalyticsService` | `MockAnalyticsService` | `analyticsServiceProvider` |
@@ -119,8 +120,8 @@ Toute l'injection vit dans **un seul fichier** : `lib/data/providers/repository_
 - `propertyByIdProvider` (`FutureProvider.family<Property?, String>`) — fiche détail.
 - `searchFiltersControllerProvider` (`StateNotifierProvider<SearchFiltersController, SearchFilters>`) — état des filtres actifs, lu/écrit en direct par la feuille de filtres et la barre flottante.
 - `filteredPropertyCountProvider` (`Provider<int>`) — compteur du bouton « Afficher N biens », **calcul réel** sur les données mock via `SearchFilters.matches()` (voir section 6), pas un chiffre inventé.
-- `favoritesControllerProvider` (`StateNotifierProvider<FavoritesController, Set<String>>`) — favoris de la session, avec un identifiant utilisateur mock unique (`mockSessionUserId`) tant que l'authentification réelle n'existe pas.
-- `savedSearchesControllerProvider` (`StateNotifierProvider<SavedSearchesController, AsyncValue<List<SavedSearch>>>`) — recherches sauvegardées de la session (`save`/`rename`/`remove`), voir section 5 bis. Contrairement à `favoritesControllerProvider`, ses écritures ne sont **pas** gardées par `requireAuth()` à cette étape (voir [DECISIONS.md](DECISIONS.md) ADR-016).
+- `favoritesControllerProvider` (`StateNotifierProvider<FavoritesController, Set<String>>`) — favoris persistés localement (`SharedPreferences`, identifiant mock unique `mockSessionUserId` tant que l'authentification réelle n'existe pas), hydratés depuis le repository à la création du contrôleur. Ses écritures ne sont **pas** gardées par `requireAuth()` — voir [DECISIONS.md](DECISIONS.md) ADR-023.
+- `savedSearchesControllerProvider` (`StateNotifierProvider<SavedSearchesController, AsyncValue<List<SavedSearch>>>`) — recherches sauvegardées de la session (`save`/`rename`/`remove`), voir section 5 bis. Comme `favoritesControllerProvider`, ses écritures ne sont **pas** gardées par `requireAuth()` à cette étape (voir [DECISIONS.md](DECISIONS.md) ADR-016).
 
 ## 5 bis. Recherches sauvegardées
 
@@ -191,7 +192,7 @@ Objet non persisté, construit par la feuille de filtres (étape 2) et, plus tar
 
 ## 11. Tests
 
-10 fichiers, 63 tests (`flutter test`). Conventions : voir [CONTRIBUTING.md](CONTRIBUTING.md).
+11 fichiers, 67 tests (`flutter test`). Conventions : voir [CONTRIBUTING.md](CONTRIBUTING.md).
 
 | Fichier | Couvre |
 |---|---|
@@ -199,12 +200,13 @@ Objet non persisté, construit par la feuille de filtres (étape 2) et, plus tar
 | `main_shell_test.dart` | Navigation 4 onglets, séquences complètes de la sous-étape 2.4 (Découvrir↔Favoris↔Profil, changements rapides, conservation du bien courant et des filtres actifs) |
 | `discover_feed_test.dart` | Indépendance swipe vertical/horizontal, barre flottante (masquage/réapparition au scroll et à l'appui long, état précédent restauré), feuille de filtres, recherches enregistrées, `RepaintBoundary` |
 | `property_card_gestures_test.dart` | Séparation stricte des zones de geste (média = like/appui long, texte = ouvrir la fiche), masquage/restauration du chrome à l'appui long, non-déclenchement du favori/de la fiche pendant l'appui long, labels sémantiques, badges affichés (sous-étape 2.4), distinction vidéo de l'indicateur photo |
-| `property_detail_test.dart` | Contenu de la fiche détail, porte d'authentification |
+| `property_detail_test.dart` | Contenu de la fiche détail, favori sans compte (ajout/retrait), contact agence toujours protégé par la porte d'authentification |
 | `property_detail_dismiss_test.dart` | Fermeture par swipe (seuil de confirmation), scroll vertical du contenu sans fermeture accidentelle |
 | `snappy_page_physics_test.dart` | Tuning du ressort personnalisé |
 | `filters_sheet_test.dart` | Repli/dépliage de « Plus de filtres », enregistrement d'une recherche (dialogue + confirmation), réinitialisation du budget au changement de transaction, état "zéro résultat", fermeture par swipe vers le bas (sous-étape 2.4) |
 | `saved_searches_sheet_test.dart` | Chargement/renommage/suppression d'une recherche sauvegardée depuis l'accès rapide, état vide, chargement d'une recherche menant à "zéro résultat" |
 | `property_badge_test.dart` | Dérivation des 5 badges (`propertyBadges()`), ordre de priorité, round-trip JSON des champs sources |
+| `favorites_screen_test.dart` | État vide, bien favori réellement affiché dans l'onglet Favoris |
 
 `network_image_mock` est requis dans tout test qui rend un `Image.network` — sans lui, `flutter test` bloque toutes les requêtes HTTP et fait échouer le test avec un timer en attente (voir [CONTRIBUTING.md](CONTRIBUTING.md)).
 

@@ -2,7 +2,7 @@
 
 > **Statut : vivant.** Ce document est la Bible produit de House For You. Toute fonctionnalité validée (code mergé sur `main`, testée) doit y être décrite avant le commit qui la clôt. Si ce document et le code divergent, c'est une anomalie à corriger immédiatement — pas une des deux sources qui « a raison ».
 >
-> Dernière mise à jour : 2026-07-20 (règle Mobile First / iOS plateforme de validation officielle — voir [DECISIONS.md](DECISIONS.md) ADR-018).
+> Dernière mise à jour : 2026-07-21 (correctif rapide post-Sprint 2.5 — favoris sans compte, fermeture des filtres assouplie).
 
 ---
 
@@ -33,7 +33,7 @@ Construire l'application mobile de référence pour chercher un bien en Belgique
 
 **Pour le chercheur de bien :**
 - Découverte passive et agréable (feed) *et* recherche active et précise (filtres) — les deux logiques cohabitent, l'utilisateur choisit.
-- Zéro friction à l'usage : aucune connexion imposée pour regarder, seules les actions qui engagent (favori, contact, visite) demandent un compte.
+- Zéro friction à l'usage : aucune connexion imposée pour regarder ni pour les favoris — seules les actions qui engagent envers un tiers (contact, visite) demandent un compte.
 - Une seule main suffit du début à la fin (voir [UX_RULES.md](UX_RULES.md)).
 
 **Pour l'agence immobilière :**
@@ -61,7 +61,7 @@ Trois principes non négociables, détaillés et appliqués dans [UX_RULES.md](U
 
 1. **Mobile first, une seule main.** Chaque écran est pensé pour un usage au pouce, en mouvement. Le desktop reste compatible mais n'est jamais la contrainte de conception.
 2. **Aucune sensation de latence.** Chaque geste doit donner l'impression que l'interface est reliée directement au doigt — swipe, double tap, ouverture/fermeture de fiche, feuille de filtres. Aucun flash blanc, aucune saccade, précache systématique.
-3. **Accès invité par défaut.** Aucune action ne force une connexion au lancement. Seules les actions qui engagent réellement (favori, contact, visite) déclenchent une porte d'authentification contextuelle.
+3. **Accès invité par défaut.** Aucune action ne force une connexion au lancement. Seules les actions qui engagent envers un tiers (contact, visite) déclenchent une porte d'authentification contextuelle — les favoris fonctionnent sans compte, persistés localement (voir [DECISIONS.md](DECISIONS.md) ADR-023).
 
 **iOS est la plateforme de validation officielle du produit** — règle absolue, pas seulement un principe de conception. Web, macOS et Android ne servent qu'au développement, au débogage et aux tests rapides ; ils ne doivent jamais orienter une décision produit. En cas de divergence de comportement entre le navigateur et l'iPhone (geste, animation, transition, performance, safe area, interaction tactile, fluidité, micro-interaction), **c'est toujours l'iPhone qui fait foi**. Voir [DECISIONS.md](DECISIONS.md) ADR-018 et [docs/QA_CHECKLIST.md](QA_CHECKLIST.md), la checklist à dérouler avant chaque validation de sprint.
 
@@ -86,9 +86,9 @@ Feed vertical plein écran, un bien par page (`PageView` vertical). Voir section
 
 Recherche guidée par étapes (transaction → type → localisation → budget → chambres → critères) puis liste de résultats (`PropertyCard.list()`). Prévu étape 3 — voir [ROADMAP.md](ROADMAP.md).
 
-### 9.3 Favoris (`lib/features/favorites/favorites_screen.dart`) — **placeholder invité**
+### 9.3 Favoris (`lib/features/favorites/favorites_screen.dart`) — **implémenté (accès invité)**
 
-État invité : message + CTA de connexion. État connecté (étape 6) : liste des biens sauvegardés, état vide propre si aucun favori. Le contrôleur de favoris (`lib/data/providers/favorites_controller.dart`) et son repository mock existent déjà et sont fonctionnels depuis le feed et la fiche détail — seul l'écran de listing reste à construire.
+Accessible **sans compte** — liste réelle des biens ajoutés en favori (persistés localement sur l'appareil, voir [DECISIONS.md](DECISIONS.md) ADR-023), état vide propre si aucun favori. Réutilise `PropertyCard.list()`. Implémentation volontairement minimale (pas de tri, pas de retrait par swipe) : l'écran complet et synchronisé multi-appareil reste prévu à l'étape 6 (authentification réelle).
 
 ### 9.4 Profil (`lib/features/profile/profile_screen.dart`) — **placeholder invité**
 
@@ -193,11 +193,11 @@ Les filtres s'appliquent en direct (pas de distinction brouillon/validé) : chaq
 - **Enregistrer** — depuis la feuille de filtres, un dialogue propose un nom par défaut pertinent (ex. « Maison à Mons », dérivé des critères actifs), modifiable avant confirmation ; une confirmation visuelle (message) suit l'enregistrement.
 - **Charger** — depuis l'aperçu horizontal de la feuille de filtres (reste ouverte, pour ajuster ensuite) ou depuis l'accès rapide de la barre flottante (ferme immédiatement le panneau — changer de recherche en quelques secondes sans rouvrir tous les filtres).
 - **Renommer** / **Supprimer** — depuis l'accès rapide de la barre flottante uniquement (icônes dédiées sur chaque ligne), avec confirmation avant suppression.
-- Contrairement aux favoris, ces actions ne passent **pas** par la porte d'authentification à cette étape — voir [DECISIONS.md](DECISIONS.md) ADR-016.
+- Comme les favoris (voir [DECISIONS.md](DECISIONS.md) ADR-023), ces actions ne passent **pas** par la porte d'authentification à cette étape — voir ADR-016.
 
 ### 10.3 Favoris — état actuel
 
-Le contrôleur (`FavoritesController`, `StateNotifier<Set<String>>`) et le repository mock (`MockFavoritesDataSource`) sont fonctionnels : toggle depuis le feed (bouton ou double tap) et la fiche détail, protégés par `requireAuth()`. **L'écran de listing des favoris reste à construire** (étape 6, avec la vraie notion de session).
+Le contrôleur (`FavoritesController`, `StateNotifier<Set<String>>`) et le repository (`MockFavoritesDataSource`, persistance locale `SharedPreferences`) sont fonctionnels : toggle depuis le feed (bouton ou double tap), la fiche détail et l'onglet Favoris lui-même, **accessible sans compte** (voir [DECISIONS.md](DECISIONS.md) ADR-023). L'écran de listing (`FavoritesScreen`) affiche réellement les biens favoris, avec état vide si aucun. Reste prévu à l'étape 6 : la vraie synchronisation multi-appareil derrière une session utilisateur réelle.
 
 ### 10.4 Notifications — non développé
 

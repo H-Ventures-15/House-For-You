@@ -2,7 +2,7 @@
 
 > **Statut : vivant.** Registre des décisions importantes (architecture, produit, UX, choix de packages). Format court : Contexte → Décision → Conséquences. **Toute règle d'[UX_RULES.md](UX_RULES.md) qui serait un jour cassée doit d'abord avoir une entrée ici expliquant pourquoi.** Les décisions ne se suppriment jamais, même remplacées — une décision remplacée reste tracée avec un renvoi vers celle qui la remplace.
 >
-> Dernière mise à jour : 2026-07-21 (Sprint 2.5 — micro-interactions premium & corrections UX).
+> Dernière mise à jour : 2026-07-21 (correctif rapide post-Sprint 2.5 — favoris sans compte, fermeture des filtres assouplie).
 
 ---
 
@@ -264,6 +264,33 @@ En revanche, le symptôme rapporté par Hugo **a bien été observé** dans le s
 **Décision** : le texte partagé inclut désormais un lien `https://houseforyou.be/biens/{propertyId}` (placeholder — ce domaine ne résout rien de réel aujourd'hui, voir [BACKLOG.md](BACKLOG.md)) en plus du texte descriptif déjà existant. Le résultat de `SharePlus.instance.share()` (`ShareResult.status`) est vérifié : si l'utilisateur ferme la feuille de partage système sans choisir d'action (`ShareResultStatus.dismissed`), l'évènement `share` n'est **pas** envoyé à `AnalyticsService` — un partage annulé ne doit jamais gonfler artificiellement les statistiques de partage réelles.
 
 **Conséquences** : `discover_screen.dart` et `property_detail_screen.dart` partagent la même logique (dupliquée à l'identique dans les deux fichiers, cohérent avec le fait qu'ils n'ont pas de contrôleur de partage commun aujourd'hui — pas d'abstraction prématurée pour deux occurrences, voir [CONTRIBUTING.md](CONTRIBUTING.md) section 4). Le jour où les deep links réels seront construits (voir [BACKLOG.md](BACKLOG.md)), seul le domaine/chemin du lien changera, pas la logique d'annulation.
+
+---
+
+## ADR-023 — Favoris accessibles sans compte, persistés localement (`SharedPreferences`)
+
+**Contexte** : correctif rapide post-Sprint 2.5, validé sur iPhone physique — la porte d'authentification (`requireAuth()`) bloquait le double tap/bouton favori pour un invité, alors que le MVP doit permettre de tester les favoris sans créer de compte. La lecture initiale (ADR-014, favori listé parmi les actions « qui engagent ») s'est révélée trop stricte à l'usage réel.
+
+**Décision** : le favori (double tap, bouton cœur du feed et de la fiche détail, listing de l'onglet Favoris) ne passe plus par `requireAuth()` — le contact agence, lui, reste protégé (aucun changement). `MockFavoritesDataSource` passe d'un stockage en mémoire (perdu à chaque redémarrage) à `SharedPreferences` (persistance réelle sur l'appareil), et `FavoritesController` s'hydrate désormais depuis le repository à sa création plutôt que de démarrer systématiquement vide.
+
+**Justification** : un favori est une action d'exploration passive et personnelle (« je garde une trace de ce qui m'intéresse »), pas un engagement envers un tiers (agence) contrairement au contact ou à la demande de visite — la même distinction que celle déjà posée pour les recherches sauvegardées (ADR-016). Bloquer cette action derrière une authentification qui n'existe pas encore (étape 5) empêchait toute validation réelle du geste sur iPhone.
+
+**Alternative envisagée et écartée** : garder le favori en mémoire simple (non persisté) le temps de l'étape 5. Écartée car Hugo teste l'app sur iPhone entre plusieurs sessions de développement — un favori qui disparaît à chaque relance de l'app aurait rendu le test impossible à mener sérieusement.
+
+**Conséquences** : `FavoritesRepository` (interface) inchangée — seule `MockFavoritesDataSource` change d'implémentation, cohérent avec ADR-011 (mock avant Supabase, un seul fichier à remplacer par repository à la bascule). Nouvel écran `lib/features/favorites/favorites_screen.dart` (liste réelle des biens favoris, état vide sinon) — implémentation volontairement minimale (pas de swipe pour retirer, pas de tri) pour rester strictement dans la portée du correctif, l'écran complet de l'étape 6 restant à construire (multi-appareil, synchronisé). **Le jour où l'étape 5/6 sera construite**, réintroduire `requireAuth()` sur `toggle()` sera une extension mineure, et remplacer `SharedPreferences` par une synchronisation Supabase ne changera que `MockFavoritesDataSource`. Testé (`test/property_detail_test.dart`, `test/favorites_screen_test.dart`).
+
+## ADR-024 — Fermeture de la feuille de filtres : suivre le delta brut du doigt, jamais `ScrollMetrics.pixels` amorti
+
+**Contexte** : correctif rapide post-Sprint 2.5, validé sur iPhone physique — le swipe de fermeture (voir ADR-020) demandait un geste bien plus long que prévu pour se déclencher. L'implémentation initiale dérivait `_dragExtent` de `ScrollUpdateNotification.metrics.pixels`, en supposant que cette valeur reflétait fidèlement le déplacement du doigt au-delà du haut de la liste.
+
+**Décision** : deux corrections combinées.
+1. `_dragExtent` est désormais accumulé à partir de `ScrollNotification.dragDetails.delta` (le delta **brut** du doigt fourni par le framework), plus jamais de `ScrollMetrics.pixels`/`overscroll` — ces derniers sont amortis par la physique de scroll de la plateforme.
+2. `ScrollEndNotification.dragDetails.velocity` est désormais réellement lu et transmis à la décision de fermeture — jusqu'ici jamais exploité, ce qui rendait le seuil de vitesse totalement inopérant (code mort).
+Le seuil de distance est également abaissé de 32 % à 18 % de la hauteur, et le seuil de vitesse de 800 à 500 px/s — une bottom sheet doit se fermer d'un geste plus léger qu'une fiche plein écran (voir UX_RULES.md section 9).
+
+**Justification technique** : `BouncingScrollPhysics` (physique par défaut sur iOS, la cible principale de l'app) applique un amortissement délibéré type « élastique » à `ScrollMetrics.pixels` au-delà des bornes du contenu (rubber-banding pensé pour un rebond de scroll visuel, jamais pour piloter un geste de fermeture) — un swipe de 200 px du doigt ne déplaçait `pixels` que de quelques dizaines de pixels. En conséquence, la feuille semblait « en retard » sur le doigt et n'atteignait le seuil de fermeture qu'après un geste bien plus ample que voulu. `ScrollNotification.dragDetails` (un `DragUpdateDetails`/`DragEndDetails` selon le type de notification) contourne entièrement ce problème : c'est le delta/la vitesse réels du geste, fournis par le framework indépendamment de la façon dont la physique de scroll choisit de les interpréter pour sa propre liste.
+
+**Conséquences** : le geste suit désormais le doigt au pixel près, quelle que soit la physique de scroll (`BouncingScrollPhysics` iOS, `ClampingScrollPhysics` Android). Testé (`test/filters_sheet_test.dart` — swipe long, swipe court et lent, **swipe rapide et court** qui ferme via le seuil de vitesse, priorité au scroll interne, croix/retour système). Le même piège (confondre `ScrollMetrics.pixels` amorti avec le delta réel du doigt) est à surveiller pour toute future feuille interactive construite sur ce modèle.
 
 ---
 

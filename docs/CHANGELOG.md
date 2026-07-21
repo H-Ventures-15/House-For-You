@@ -8,6 +8,17 @@
 
 ## [Non publié] — 0.1.0
 
+### 2026-07-21 — Correctif rapide post-Sprint 2.5 (favoris sans compte, fermeture des filtres)
+
+**Corrections**
+- Favoris accessibles sans compte : le double tap et le bouton cœur (feed, fiche détail) ne passent plus par `requireAuth()`. Persistance locale réelle (`SharedPreferences` au lieu d'un stockage en mémoire perdu à chaque redémarrage) — `MockFavoritesDataSource`, `FavoritesController` s'hydrate désormais au démarrage.
+- Nouvel écran `lib/features/favorites/favorites_screen.dart` : liste réelle des biens favoris (`PropertyCard.list()`), état vide explicite sinon — implémentation volontairement minimale, l'écran complet synchronisé reste à l'étape 6.
+- Fermeture de la feuille de filtres par swipe assouplie : le geste suit désormais le doigt **au pixel près** (`ScrollNotification.dragDetails` brut plutôt que `ScrollMetrics.pixels`, amorti par `BouncingScrollPhysics` sur iOS — voir [DECISIONS.md](DECISIONS.md) ADR-024) ; seuil de distance abaissé de 32 % à 18 %, seuil de vitesse de 800 à 500 px/s. La vitesse de relâchement (`ScrollEndNotification.dragDetails.velocity`) est désormais réellement exploitée — elle ne l'était pas, rendant jusqu'ici le seuil de vitesse inopérant.
+- Tests : `test/property_detail_test.dart` (favori sans compte, ajout/retrait, contact toujours protégé), `test/favorites_screen_test.dart` (nouveau fichier — état vide, bien favori affiché), `test/filters_sheet_test.dart` (swipe rapide et court qui ferme via le seuil de vitesse) — 67 tests au total désormais.
+
+**Décisions produit**
+- Voir [DECISIONS.md](DECISIONS.md) ADR-023 (favoris sans compte) et ADR-024 (delta brut du doigt pour le swipe de fermeture).
+
 ### 2026-07-21 — Micro-interactions premium & corrections UX (sous-étape 2.4 / « Sprint 2.5 »)
 
 **Ajouts**

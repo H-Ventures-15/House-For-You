@@ -9,12 +9,24 @@ import 'repository_providers.dart';
 /// jamais sollicité pour un invité.
 const mockSessionUserId = 'session-user';
 
-/// Ids des biens favoris de la session en cours. Appelé uniquement après
-/// passage de `requireAuth` (voir `core/auth/auth_guard.dart`).
+/// Ids des biens favoris — accessibles sans compte (voir DECISIONS.md) et
+/// persistés localement (`MockFavoritesDataSource`, `SharedPreferences`)
+/// pour survivre à un redémarrage de l'app tant que la synchronisation
+/// Supabase (étape 5/6) n'existe pas.
 class FavoritesController extends StateNotifier<Set<String>> {
-  FavoritesController(this._ref) : super(const {});
+  FavoritesController(this._ref) : super(const {}) {
+    _hydrate();
+  }
 
   final Ref _ref;
+
+  Future<void> _hydrate() async {
+    final favorites = await _ref.read(favoritesRepositoryProvider).getFavorites(
+          mockSessionUserId,
+        );
+    if (!mounted) return;
+    state = favorites.map((p) => p.id).toSet();
+  }
 
   Future<void> toggle(String propertyId) async {
     final repository = _ref.read(favoritesRepositoryProvider);

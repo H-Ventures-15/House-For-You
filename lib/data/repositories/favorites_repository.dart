@@ -1,7 +1,9 @@
 import '../models/property.dart';
 
-/// Nécessite une session utilisateur (voir `AuthGuard`,
-/// architecture-mvp.md section 1 et 7) — jamais appelé pour un invité.
+/// Accessible sans compte (favoris locaux à l'appareil, voir DECISIONS.md) —
+/// `userId` reste un identifiant de session mock (`mockSessionUserId`) tant
+/// que l'authentification réelle et la synchronisation Supabase (étape 5/6)
+/// n'existent pas.
 abstract class FavoritesRepository {
   Future<List<Property>> getFavorites(String userId);
 

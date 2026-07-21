@@ -85,6 +85,8 @@ Toute fonctionnalité interactive nouvelle doit être couverte par au moins un t
 
 **Piège connu** : une feuille modale personnalisée (`showGeneralDialog`) n'a pas d'ancêtre `Material` par défaut — tout `TextField`/`InkWell` à l'intérieur y échouera silencieusement en debug (`No Material widget found`) tant qu'un `Material` explicite n'enveloppe pas le contenu. Voir `lib/core/widgets/blurred_modal_sheet.dart`.
 
+**Piège connu** : tout test qui exerce réellement `favoritesControllerProvider` (donc `MockFavoritesDataSource`, qui persiste via `SharedPreferences` depuis le correctif du 2026-07-21) doit appeler `SharedPreferences.setMockInitialValues({})` dans un `setUp()` — sans ça, le plugin n'a pas de backend dans l'environnement de test et l'état des favoris ne se met pas à jour de façon fiable, sans erreur explicite. Voir `test/property_detail_test.dart`/`test/favorites_screen_test.dart`.
+
 ## 6. Documentation — mise à jour obligatoire avant commit
 
 Depuis le 2026-07-20, la documentation de `/docs` est la seule source de vérité produit/technique du projet. **Avant chaque commit qui clôt une fonctionnalité validée** :

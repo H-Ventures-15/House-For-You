@@ -265,16 +265,12 @@ class _DiscoverFeedState extends ConsumerState<_DiscoverFeed> {
         );
   }
 
-  /// Retourne `true` si le favori a effectivement changé (session
-  /// authentifiée) — `false` si bloqué par la porte d'authentification, pour
-  /// que l'appelant (bouton ou double tap) sache s'il doit animer.
+  /// Toujours `true` — les favoris sont accessibles sans compte tant que la
+  /// synchronisation Supabase (étape 5/6) n'existe pas (voir DECISIONS.md).
+  /// Conserve une valeur de retour bool pour que l'appelant (bouton ou
+  /// double tap) sache s'il doit animer, cohérent avec les autres actions
+  /// protégées qui, elles, passent toujours par `requireAuth()`.
   bool _handleToggleFavorite(Property property) {
-    final granted = requireAuth(
-      context,
-      ref,
-      message: 'Connecte-toi pour ajouter ce bien à tes favoris',
-    );
-    if (!granted) return false;
     ref.read(favoritesControllerProvider.notifier).toggle(property.id);
     return true;
   }

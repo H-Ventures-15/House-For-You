@@ -197,11 +197,32 @@ void main() {
           await tester.pumpAndSettle();
 
           // Distance courte, vitesse faible : sous les deux seuils de
-          // fermeture (32 % de la hauteur ou vitesse de relâchement).
+          // fermeture (18 % de la hauteur ou vitesse de relâchement).
           await tester.drag(find.byType(ListView), const Offset(0, 40));
           await tester.pumpAndSettle();
 
           expect(find.text('Filtres'), findsOneWidget);
+        });
+      },
+    );
+
+    testWidgets(
+      'un swipe rapide et court ferme quand même la feuille (seuil de '
+      'vitesse)',
+      (tester) async {
+        await mockNetworkImagesFor(() async {
+          await tester.pumpWidget(_wrap(const DiscoverScreen()));
+          await tester.pumpAndSettle();
+
+          await tester.tap(find.byTooltip('Filtres'));
+          await tester.pumpAndSettle();
+
+          // Distance courte (bien sous les 18 % de hauteur) mais vitesse
+          // élevée — doit fermer via le seuil de vitesse, pas de distance.
+          await tester.fling(find.byType(ListView), const Offset(0, 60), 2000);
+          await tester.pumpAndSettle();
+
+          expect(find.text('Filtres'), findsNothing);
         });
       },
     );

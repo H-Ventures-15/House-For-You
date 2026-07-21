@@ -23,6 +23,10 @@ dependencies:
   flutter_dotenv: ^5.1.0
   share_plus: ^13.2.1
 
+  # Persistance locale (favoris invité tant que l'authentification réelle
+  # n'existe pas — voir DECISIONS.md)
+  shared_preferences: ^2.5.5
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

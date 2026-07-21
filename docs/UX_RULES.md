@@ -49,8 +49,8 @@ House For You vise la sensation d'une application Apple ou Airbnb — minimalist
 ## 6. Double tap (like)
 
 - Sur le **média uniquement** (photo/vidéo) d'une carte du feed — jamais sur le bloc texte (prix/titre/description).
-- Ajoute le bien aux favoris s'il n'y est pas, le retire s'il y est déjà (même sémantique que le bouton cœur).
-- Déclenche systématiquement une animation de cœur (rebond puis fondu) **et un retour haptique léger** (`HapticFeedback.lightImpact()`), sauf si l'action est bloquée par la porte d'authentification (invité) — dans ce cas, ni l'animation ni le haptique ne se déclenchent, seul le message de connexion s'affiche, pour ne jamais laisser croire que l'action a réussi.
+- Ajoute le bien aux favoris s'il n'y est pas, le retire s'il y est déjà (même sémantique que le bouton cœur) — **fonctionne sans compte** et sans aucune porte d'authentification, voir section 14 et [DECISIONS.md](DECISIONS.md) ADR-023.
+- Déclenche systématiquement une animation de cœur (rebond puis fondu) **et un retour haptique léger** (`HapticFeedback.lightImpact()`) — l'action aboutit toujours, l'animation et le haptique ne sont donc jamais court-circuités.
 - La séparation stricte des zones de geste (média = like, texte = ouvrir la fiche) est **testée** (`test/property_card_gestures_test.dart`) — toute évolution de `PropertyCard.feed` doit préserver ces tests ou les mettre à jour consciemment.
 
 ## 6 bis. Appui long (masquer l'interface)
@@ -91,7 +91,7 @@ House For You vise la sensation d'une application Apple ou Airbnb — minimalist
 - Fond flouté (`BackdropFilter`, `lib/core/widgets/blurred_modal_sheet.dart`) plutôt qu'un simple assombrissement — signale immédiatement à l'utilisateur qu'il reste « au-dessus » du contexte précédent, pas dans un nouvel écran.
 - Hauteur quasi pleine (94 % de l'écran) avec un liseré du fond flouté visible en haut — l'utilisateur comprend immédiatement où il est sans README.
 - Poignée de glissement (petite barre grise) en haut de la feuille, coins arrondis 28 px.
-- **Fermeture par swipe vers le bas** (Sprint 2.5), en plus de la croix et du retour système — trois chemins équivalents. Le geste suit le doigt en direct (fond qui se dé-floute/s'éclaircit proportionnellement), seuil de 32 % de la hauteur ou de vitesse avant confirmation, retour doux en place sinon.
+- **Fermeture par swipe vers le bas** (Sprint 2.5), en plus de la croix et du retour système — trois chemins équivalents. Le geste suit le doigt **au pixel près** (fond qui se dé-floute/s'éclaircit proportionnellement) — voir [DECISIONS.md](DECISIONS.md) ADR-024 pour le piège corrigé (l'amortissement « élastique » du scroll iOS ne doit jamais piloter la translation de la feuille). Seuil volontairement permissif : 18 % de la hauteur **ou** une vitesse de relâchement suffisante (même un swipe très court referme la feuille s'il est rapide), retour doux en place sinon.
 - **Priorité au scroll interne** : tant que le contenu de la feuille n'est pas remonté tout en haut, un swipe vers le bas fait défiler ce contenu — il ne ferme la feuille qu'une fois le scroll déjà à son sommet (voir [DECISIONS.md](DECISIONS.md) pour l'implémentation via les notifications de scroll plutôt qu'un geste concurrent).
 - En-tête fixe : fermeture (X) à gauche, titre centré, « Réinitialiser » à droite (visible seulement si des filtres sont actifs).
 - Pied fixe : bouton d'action principal, toujours visible même si le contenu défile.
@@ -129,9 +129,9 @@ Le détail des couleurs, typographies, espacements, rayons, ombres et composants
 ## 14. Accès invité par défaut
 
 - Aucune action ne force une connexion au lancement de l'app.
-- Seules les actions qui **engagent** (favori, contacter une agence, demander une visite, créer une alerte) déclenchent la porte d'authentification (`requireAuth()`, `lib/core/auth/auth_guard.dart`).
+- Seules les actions qui **engagent envers un tiers** (contacter une agence, demander une visite, créer une alerte) déclenchent la porte d'authentification (`requireAuth()`, `lib/core/auth/auth_guard.dart`).
 - Tant que l'écran de connexion réel n'existe pas (avant l'étape 5), la porte affiche un message explicite (SnackBar) plutôt que de bloquer silencieusement ou de construire un écran de connexion prématuré — voir [DECISIONS.md](DECISIONS.md).
-- **Exception documentée** : enregistrer/charger/renommer/supprimer une recherche sauvegardée ne déclenche **pas** cette porte, à la différence des favoris — voir [DECISIONS.md](DECISIONS.md) ADR-016.
+- **Exceptions documentées** : les favoris (double tap, bouton cœur, listing de l'onglet Favoris) et les recherches sauvegardées (enregistrer/charger/renommer/supprimer) ne déclenchent **pas** cette porte — les deux sont des actions d'exploration passive persistées localement à l'appareil, pas un engagement envers un tiers. Voir [DECISIONS.md](DECISIONS.md) ADR-016 (recherches sauvegardées) et ADR-023 (favoris).
 
 ## 15. Performance perçue
 

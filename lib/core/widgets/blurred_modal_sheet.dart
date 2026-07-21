@@ -76,14 +76,16 @@ class _DismissibleSheet extends StatefulWidget {
 class _DismissibleSheetState extends State<_DismissibleSheet>
     with SingleTickerProviderStateMixin {
   /// Fraction de la hauteur de la feuille à partir de laquelle un
-  /// relâchement confirme la fermeture (32 % — même seuil que la fermeture
-  /// de la fiche détail, voir ADR-004/UX_RULES.md section 8).
-  static const double _dismissThreshold = 0.32;
+  /// relâchement confirme la fermeture — volontairement plus permissif que
+  /// le seuil de la fiche détail (32 %, voir ADR-004) : une bottom sheet se
+  /// ferme naturellement d'un petit geste, contrairement à la fiche qui
+  /// occupe tout l'écran et mérite un geste plus délibéré.
+  static const double _dismissThreshold = 0.18;
 
   /// Vitesse de relâchement (px/s) qui confirme la fermeture même sous le
   /// seuil de distance — un swipe rapide et court doit fermer tout autant
   /// qu'un swipe lent et long.
-  static const double _dismissVelocity = 800;
+  static const double _dismissVelocity = 500;
 
   late final AnimationController _snapController;
 
@@ -123,18 +125,23 @@ class _DismissibleSheetState extends State<_DismissibleSheet>
     });
   }
 
-  void _accumulateOverscroll(double delta) {
+  /// Accumule un delta de glissement **brut** (celui du doigt, pas celui —
+  /// amorti — que la physique de scroll choisit d'appliquer à sa propre
+  /// liste). C'est le point clé : `BouncingScrollPhysics` (iOS, la cible
+  /// principale de l'app) applique un fort amortissement type « élastique »
+  /// à `ScrollMetrics.pixels` au-delà des bornes (rubber-banding délibéré,
+  /// pensé pour un rebond de scroll, pas pour piloter un geste de
+  /// fermeture) — un swipe de 200 px du doigt ne déplaçait `pixels` que de
+  /// quelques dizaines de pixels, obligeant à un geste bien plus long que
+  /// prévu pour atteindre le seuil de fermeture. En accumulant directement
+  /// `DragUpdateDetails.delta` (fourni par `ScrollNotification.dragDetails`,
+  /// non amorti), la feuille suit le doigt au pixel près, quelle que soit la
+  /// physique de scroll de la plateforme.
+  void _accumulateRawDelta(double delta) {
     if (delta <= 0) return;
     _setDragExtent(_dragExtent + delta);
   }
 
-  /// Fixe directement la distance de glissement — utilisé par le cas
-  /// `BouncingScrollPhysics` (iOS, la cible principale de l'app) où
-  /// `ScrollUpdateNotification.metrics.pixels` donne déjà une position
-  /// absolue au-delà du haut, contrairement à `OverscrollNotification` qui ne
-  /// fournit qu'un delta incrémental (voir cas `ClampingScrollPhysics`
-  /// ci-dessous). Permet au geste de suivre le doigt dans les deux sens
-  /// (tirer, puis relâcher partiellement sans lever le doigt).
   void _setDragExtent(double value) {
     final clamped = value.clamp(0.0, double.infinity);
     if (clamped == _dragExtent) return;
@@ -179,27 +186,39 @@ class _DismissibleSheetState extends State<_DismissibleSheet>
     // horizontale) ne doit jamais déclencher ce comportement.
     if (notification.depth != 0) return false;
 
-    if (notification is OverscrollNotification) {
-      // `ClampingScrollPhysics` (Android) : `overscroll` est un delta
-      // incrémental, négatif quand on tire au-delà du haut de la liste (ce
-      // qui correspond à un swipe vers le bas) — positif au-delà du bas,
-      // ignoré ici.
-      if (notification.overscroll < 0) {
-        _accumulateOverscroll(-notification.overscroll);
-      }
-    } else if (notification is ScrollUpdateNotification) {
-      final metrics = notification.metrics;
-      if (metrics.pixels < metrics.minScrollExtent) {
-        // `BouncingScrollPhysics` (iOS, cible principale de l'app) : le
-        // scroll dépasse directement la limite, `pixels` donne une position
-        // absolue plutôt qu'un delta.
-        _setDragExtent(metrics.minScrollExtent - metrics.pixels);
-      } else if (_dragExtent > 0) {
-        // Le scroll interne reprend la priorité : on relâche la feuille.
+    if (notification is ScrollUpdateNotification) {
+      final atTop =
+          notification.metrics.pixels <= notification.metrics.minScrollExtent;
+      final dragDelta = notification.dragDetails?.delta.dy;
+      if (atTop && dragDelta != null && dragDelta > 0) {
+        // Le contenu est déjà en haut : le geste vers le bas prend
+        // immédiatement le contrôle, au pixel près (voir
+        // `_accumulateRawDelta`).
+        _accumulateRawDelta(dragDelta);
+      } else if (_dragExtent > 0 && !atTop) {
+        // Le scroll interne reprend la priorité (l'utilisateur a relâché
+        // puis repris son scroll normal) : on relâche la feuille.
         _settleDrag();
       }
+    } else if (notification is OverscrollNotification) {
+      // `ClampingScrollPhysics` (Android) : passe par `OverscrollNotification`
+      // plutôt qu'un `pixels` négatif. `dragDetails` reste le delta brut du
+      // doigt quand disponible (drag actif) ; à défaut (fin de fling), on
+      // retombe sur `overscroll` (delta déjà incrémental de son côté).
+      final dragDelta = notification.dragDetails?.delta.dy;
+      if (dragDelta != null && dragDelta > 0) {
+        _accumulateRawDelta(dragDelta);
+      } else if (notification.overscroll < 0) {
+        _accumulateRawDelta(-notification.overscroll);
+      }
     } else if (notification is ScrollEndNotification && _dragExtent > 0) {
-      _settleDrag();
+      // `dragDetails` d'un `ScrollEndNotification` est un `DragEndDetails`
+      // qui porte la vitesse réelle de relâchement — indispensable pour
+      // qu'un swipe rapide et court ferme la feuille (voir
+      // `_dismissVelocity`), jamais exploité tant que ce champ n'est pas lu.
+      final velocity =
+          notification.dragDetails?.velocity.pixelsPerSecond.dy ?? 0;
+      _settleDrag(velocity: velocity);
     }
     return false;
   }
