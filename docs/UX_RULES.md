@@ -2,7 +2,7 @@
 
 > **Statut : vivant.** Ce document liste toutes les règles d'expérience utilisateur non négociables. **Aucune règle ici ne doit être cassée sans qu'une entrée correspondante soit ajoutée à [DECISIONS.md](DECISIONS.md) expliquant pourquoi.** Si le code et ce document divergent, le document doit être corrigé dans le même commit que le changement.
 >
-> Dernière mise à jour : 2026-07-20 (règle Mobile First / iOS plateforme de validation officielle).
+> Dernière mise à jour : 2026-07-21 (correctif UX ciblé — fluidité de la bottom sheet, seuil naturel du swipe vertical du feed).
 
 ---
 
@@ -37,8 +37,14 @@ House For You vise la sensation d'une application Apple ou Airbnb — minimalist
 
 - Fait défiler d'un bien à l'autre (`PageView` `Axis.vertical`, `lib/features/discover/discover_screen.dart`).
 - Doit suivre le doigt exactement pendant le drag (comportement natif Flutter, ne jamais l'intercepter avec un `GestureDetector` concurrent).
-- Le settle en fin de geste utilise `SnappyPageScrollPhysics` (ressort plus raide que le défaut Flutter) pour une sensation instantanée, sans rebond. Voir [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) section « Animations ».
-- **Ne doit jamais** être interrompu par le swipe horizontal de la galerie interne à une carte — les deux gestes sont sur des axes opposés et se désambiguïsent nativement dans l'arène de gestes de Flutter (aucun hack nécessaire, voir [DECISIONS.md](DECISIONS.md)).
+- **Seuil de changement de bien** (correctif post-Sprint 2.5, `FeedPageScrollPhysics`) : un changement de bien exige une intention nette, jamais un simple flick de quelques millimètres.
+  - Distance parcourue ≥ 20 % de la hauteur d'une page : valide seule le changement, quelle que soit la vitesse.
+  - En dessous de 5 % de distance : ne change jamais de bien, même avec un pic de vitesse (protège d'un tremblement/tap involontaire).
+  - Entre les deux : une vélocité de relâchement ≥ 1200 px/s valide quand même un swipe court mais franchement rapide.
+  - Sous ces seuils, le bien courant revient doucement à sa position (retour de ressort, jamais un saut).
+  - Ces valeurs sont volontairement ajustables (constantes nommées dans le code) selon le ressenti réel sur iPhone — voir [DECISIONS.md](DECISIONS.md) ADR-026.
+- Le settle en fin de geste utilise le même ressort que `SnappyPageScrollPhysics` (plus raide que le défaut Flutter) pour une sensation instantanée, sans rebond. Voir [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) section « Animations ».
+- **Ne doit jamais** être interrompu par le swipe horizontal de la galerie interne à une carte — les deux gestes sont sur des axes opposés et se désambiguïsent nativement dans l'arène de gestes de Flutter (aucun hack nécessaire, voir [DECISIONS.md](DECISIONS.md)). Un geste diagonal faible n'a, par construction, ni la distance ni la vitesse verticales suffisantes pour déclencher un changement de bien accidentel.
 
 ## 5. Swipe horizontal (galerie photo)
 
@@ -93,6 +99,7 @@ House For You vise la sensation d'une application Apple ou Airbnb — minimalist
 - Poignée de glissement (petite barre grise) en haut de la feuille, coins arrondis 28 px.
 - **Fermeture par swipe vers le bas** (Sprint 2.5), en plus de la croix et du retour système — trois chemins équivalents. Le geste suit le doigt **au pixel près** (fond qui se dé-floute/s'éclaircit proportionnellement) — voir [DECISIONS.md](DECISIONS.md) ADR-024 pour le piège corrigé (l'amortissement « élastique » du scroll iOS ne doit jamais piloter la translation de la feuille). Seuil volontairement permissif : 18 % de la hauteur **ou** une vitesse de relâchement suffisante (même un swipe très court referme la feuille s'il est rapide), retour doux en place sinon.
 - **Priorité au scroll interne** : tant que le contenu de la feuille n'est pas remonté tout en haut, un swipe vers le bas fait défiler ce contenu — il ne ferme la feuille qu'une fois le scroll déjà à son sommet (voir [DECISIONS.md](DECISIONS.md) pour l'implémentation via les notifications de scroll plutôt qu'un geste concurrent).
+- **Fluidité du geste de fermeture** (correctif post-Sprint 2.5) : le règlement au relâchement (confirmation ou annulation) utilise un ressort physique qui part de la vitesse réelle du relâchement, jamais une animation à durée fixe qui ignorerait cette vitesse — voir [DECISIONS.md](DECISIONS.md) ADR-025. Le flou de fond (`BackdropFilter`) ne se recalcule jamais pendant le drag (opération coûteuse), seul l'assombrissement (un simple fondu) reste continu — jamais de flash blanc, jamais de saccade perceptible sur iPhone.
 - En-tête fixe : fermeture (X) à gauche, titre centré, « Réinitialiser » à droite (visible seulement si des filtres sont actifs).
 - Pied fixe : bouton d'action principal, toujours visible même si le contenu défile.
 - Le clavier ne doit **jamais** masquer le champ actif ou le bouton d'action — la feuille remonte avec `MediaQuery.viewInsets.bottom` (voir `FiltersSheet` dans `filters_sheet.dart`).
@@ -138,6 +145,7 @@ Le détail des couleurs, typographies, espacements, rayons, ombres et composants
 - Précache systématique des médias adjacents (bien précédent/suivant dans le feed) — voir [TECH_ARCHITECTURE.md](TECH_ARCHITECTURE.md) section « Préchargement ».
 - `RepaintBoundary` autour de tout élément coûteux répété dans une liste/feed.
 - Aucun appel réseau ou calcul lourd ne doit bloquer le thread principal pendant un geste actif (drag, animation).
+- **`BackdropFilter` (flou) ne doit jamais être recalculé au rythme d'un geste actif** — c'est l'un des effets les plus coûteux de Flutter (ré-échantillonne et floute tout ce qu'il y a dessous à chaque frame où il est peint). Un flou dont l'intensité dépend de la position d'un drag (potentiellement des dizaines de frames par seconde, sur une durée arbitraire) provoque des saccades bien réelles sur iPhone, même quand elles n'apparaissent pas dans un environnement de développement moins contraint — voir [DECISIONS.md](DECISIONS.md) ADR-025. Séparer le flou (rythmé par une transition ponctuelle) de tout ce qui doit rester continu pendant un geste (opacité, translation).
 
 ## 16. Accessibilité
 

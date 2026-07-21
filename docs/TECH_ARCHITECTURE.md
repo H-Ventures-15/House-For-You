@@ -2,7 +2,7 @@
 
 > **Statut : vivant.** Source de vérité technique du projet. Supersède la partie architecture d'[architecture-mvp.md](architecture-mvp.md) (conservé comme document historique du cahier des charges initial — voir note en tête de ce fichier). Toute évolution structurelle (nouveau dossier, nouveau pattern, nouvelle dépendance) doit être reflétée ici avant le commit qui l'introduit.
 >
-> Dernière mise à jour : 2026-07-21 (correctif rapide post-Sprint 2.5 — favoris sans compte, fermeture des filtres assouplie).
+> Dernière mise à jour : 2026-07-21 (correctif UX ciblé — fluidité de la bottom sheet, seuil naturel du swipe vertical du feed).
 
 ---
 
@@ -164,7 +164,7 @@ Objet non persisté, construit par la feuille de filtres (étape 2) et, plus tar
 - **`precacheImage`** sur les photos du bien précédent et suivant (3 médias par voisin), à chaque changement de page settlé — la latence perçue d'un feed à médias réseau vient du téléchargement, pas de la construction du widget ; précharger l'image élimine ce coût avant que la carte ne soit réellement construite.
 - **`AutomaticKeepAliveClientMixin`** sur l'état de chaque carte du feed (`_FeedCardState`) — préserve la photo affichée d'une carte déjà visitée tant qu'elle reste dans la fenêtre du `PageView`.
 - **`RepaintBoundary`** par carte du feed — isole le repaint de chaque page, le scroll ne force jamais le repaint des cartes voisines.
-- **`SnappyPageScrollPhysics`** (`lib/core/widgets/snappy_page_physics.dart`) — ressort de fin de geste personnalisé (`mass: 0.3, stiffness: 180, ratio: 1`) appliqué au feed vertical, à la galerie photo de chaque carte et à la galerie de la fiche détail.
+- **`SnappyPageScrollPhysics`** (`lib/core/widgets/snappy_page_physics.dart`) — ressort de fin de geste personnalisé (`mass: 0.3, stiffness: 180, ratio: 1`) appliqué au feed vertical (via `FeedPageScrollPhysics`, voir section 10 quinquies), à la galerie photo de chaque carte et à la galerie de la fiche détail.
 - **`allowImplicitScrolling: true`** sur les mêmes trois `PageView` — améliore la navigation VoiceOver/TalkBack. Vérifié empiriquement (test dédié, `test/snappy_page_physics_test.dart` + investigation documentée dans le commit `3c3759c`) que cette option ne pré-monte **pas** réellement les pages voisines en mémoire malgré son nom — ce n'est pas le mécanisme qui explique la fluidité, gardé uniquement pour son bénéfice d'accessibilité réel.
 
 ## 10 bis. Gestes du feed (sous-étape 2.2)
@@ -190,20 +190,30 @@ Objet non persisté, construit par la feuille de filtres (étape 2) et, plus tar
 - **Retours haptiques** — `HapticFeedback.selectionClick()` sur changement d'onglet (`main_shell.dart`), sélection réelle du type de transaction et application des filtres (`filters_sheet.dart`), chargement d'une recherche sauvegardée (`filters_sheet.dart`, `saved_searches_sheet.dart`) ; `HapticFeedback.lightImpact()` au franchissement du seuil de fermeture (fiche détail, feuille de filtres), une seule fois par franchissement (bool `_hapticFired`/`_dismissHapticFired`, réinitialisé si on repasse sous le seuil).
 - **Partage** — vérification de `ShareResult.status` avant de tracker l'évènement `share` (voir [DECISIONS.md](DECISIONS.md) ADR-022).
 
+## 10 quinquies. Correctif UX ciblé — fluidité de la bottom sheet, seuil naturel du swipe vertical (post-Sprint 2.5)
+
+- **Fermeture de la feuille de filtres, réécrite pour la fluidité** (`_DismissibleSheet`, `lib/core/widgets/blurred_modal_sheet.dart`) — voir [DECISIONS.md](DECISIONS.md) ADR-025 :
+  - `BackdropFilter` (flou de fond) piloté par sa propre `AnimatedBuilder`, qui n'écoute que `routeAnimation` (l'animation d'ouverture/fermeture de la route) — jamais `_dragController`. Coût de re-flou payé une seule fois par transition (~300 ms), jamais à chaque frame d'un drag actif de durée arbitraire.
+  - L'assombrissement (simple `ColoredBox` à alpha variable) et la translation (`Transform.translate`) restent seuls à réagir en continu au drag, via `Listenable.merge([routeAnimation, _dragController])`.
+  - `_dragController` est un `AnimationController.unbounded` unique : `.value =` pour le suivi 1:1 pendant le drag actif (arrête net toute simulation en cours), `.animateWith(SpringSimulation(...))` pour le règlement au relâchement, en utilisant la vitesse réelle de `DragEndDetails.velocity` comme vitesse initiale du ressort — jamais un `Tween`/`Curve` à durée fixe qui ignorerait cette vitesse.
+- **`FeedPageScrollPhysics`** (`lib/core/widgets/snappy_page_physics.dart`) — remplace la décision de changement de page pour le feed vertical uniquement (jamais les galeries horizontales). Voir [DECISIONS.md](DECISIONS.md) ADR-026 pour la découverte technique centrale : `PageView` enveloppe systématiquement toute physique fournie dans sa propre `_kPagePhysics` interne tant que `pageSnapping` (par défaut `true`) n'est pas explicitement mis à `false` — sans quoi `createBallisticSimulation` d'une physique personnalisée n'est **jamais** consultée pour les changements de page normaux (seulement pour le rattrapage hors-limites). `DiscoverScreen` déclare donc `pageSnapping: false` sur son `PageView`.
+  - Seuils : 20 % de la hauteur de page valide seul un changement ; sous 5 %, aucune vitesse ne suffit ; entre les deux, une vélocité ≥ 1200 px/s valide un swipe court et rapide.
+  - `currentPage` (un `int Function()` fourni par `_DiscoverFeedState`) donne l'origine réelle du geste — capturée une seule fois par `ScrollStartNotification` (`_gestureOriginPage`), jamais déduite de la position fractionnaire courante (`page.round()` désigne la page cible, pas l'origine, au-delà de 50 % de distance parcourue) ni de `_lastSettledIndex` (mis à jour par `onPageChanged`, qui se déclenche lui-même dès qu'un simple `page.round()` dépasse 50 % — potentiellement pendant le drag, avant que notre propre seuil n'ait tranché).
+
 ## 11. Tests
 
-11 fichiers, 67 tests (`flutter test`). Conventions : voir [CONTRIBUTING.md](CONTRIBUTING.md).
+11 fichiers, 72 tests (`flutter test`). Conventions : voir [CONTRIBUTING.md](CONTRIBUTING.md).
 
 | Fichier | Couvre |
 |---|---|
 | `mock_data_test.dart` | Intégrité des données mock (agences référencées, photos de couverture, round-trip JSON) |
 | `main_shell_test.dart` | Navigation 4 onglets, séquences complètes de la sous-étape 2.4 (Découvrir↔Favoris↔Profil, changements rapides, conservation du bien courant et des filtres actifs) |
-| `discover_feed_test.dart` | Indépendance swipe vertical/horizontal, barre flottante (masquage/réapparition au scroll et à l'appui long, état précédent restauré), feuille de filtres, recherches enregistrées, `RepaintBoundary` |
+| `discover_feed_test.dart` | Indépendance swipe vertical/horizontal, barre flottante (masquage/réapparition au scroll et à l'appui long, état précédent restauré), feuille de filtres, recherches enregistrées, `RepaintBoundary`, seuil naturel du swipe vertical (petit drag = retour, distance suffisante = changement, swipe court et rapide = changement, geste diagonal faible = pas de changement — correctif post-Sprint 2.5) |
 | `property_card_gestures_test.dart` | Séparation stricte des zones de geste (média = like/appui long, texte = ouvrir la fiche), masquage/restauration du chrome à l'appui long, non-déclenchement du favori/de la fiche pendant l'appui long, labels sémantiques, badges affichés (sous-étape 2.4), distinction vidéo de l'indicateur photo |
 | `property_detail_test.dart` | Contenu de la fiche détail, favori sans compte (ajout/retrait), contact agence toujours protégé par la porte d'authentification |
 | `property_detail_dismiss_test.dart` | Fermeture par swipe (seuil de confirmation), scroll vertical du contenu sans fermeture accidentelle |
 | `snappy_page_physics_test.dart` | Tuning du ressort personnalisé |
-| `filters_sheet_test.dart` | Repli/dépliage de « Plus de filtres », enregistrement d'une recherche (dialogue + confirmation), réinitialisation du budget au changement de transaction, état "zéro résultat", fermeture par swipe vers le bas (sous-étape 2.4) |
+| `filters_sheet_test.dart` | Repli/dépliage de « Plus de filtres », enregistrement d'une recherche (dialogue + confirmation), réinitialisation du budget au changement de transaction, état "zéro résultat", fermeture par swipe vers le bas (distance, vitesse, priorité au scroll interne, suivi du doigt en direct pendant le drag — correctif post-Sprint 2.5) |
 | `saved_searches_sheet_test.dart` | Chargement/renommage/suppression d'une recherche sauvegardée depuis l'accès rapide, état vide, chargement d'une recherche menant à "zéro résultat" |
 | `property_badge_test.dart` | Dérivation des 5 badges (`propertyBadges()`), ordre de priorité, round-trip JSON des champs sources |
 | `favorites_screen_test.dart` | État vide, bien favori réellement affiché dans l'onglet Favoris |

@@ -2,7 +2,7 @@
 
 > **Statut : vivant.** Toutes les idées du projet, classées par priorité. Aucune idée évoquée en cours de développement ne doit être perdue — si elle est écartée d'une étape en cours, elle atterrit ici plutôt que d'être oubliée. Une idée qui passe en développement est déplacée vers [ROADMAP.md](ROADMAP.md) et retirée d'ici.
 >
-> Dernière mise à jour : 2026-07-21 (sous-étape 2.4).
+> Dernière mise à jour : 2026-07-21 (correctif UX ciblé — fluidité bottom sheet, seuil du swipe feed).
 
 ---
 
@@ -27,6 +27,7 @@
 - **Affichage carte** — nécessiterait PostGIS côté Supabase et une lib de carte côté Flutter (`google_maps_flutter`, `flutter_map`...) ; le modèle `Property` a déjà `display_latitude`/`display_longitude` publics et approximatifs, prêts pour ça.
 - **Extraction de couleur dominante depuis la photo** pour un fond de feed adaptatif — envisagée puis écartée pour la sous-étape 2.1 au profit d'un fond sombre uni, plus simple et déjà suffisant (voir [DECISIONS.md](DECISIONS.md) ADR-013). À reconsidérer si un besoin de raffinement visuel supplémentaire émerge.
 - **Animation Hero** entre la photo actuellement affichée dans le feed et la galerie de la fiche détail à l'ouverture — explicitement envisagée puis reportée lors du polish premium (2026-07-20) faute de temps face au périmètre du système de filtres, jugée « lorsque pertinent » donc non bloquante. Le geste de fermeture (retour au feed) est, lui, déjà traité sans flash blanc indépendamment de tout Hero (voir [DECISIONS.md](DECISIONS.md) ADR-005).
+- **Vérifier l'effectivité du ressort `SnappyPageScrollPhysics` sur les deux galeries photo horizontales** — la correction du swipe vertical du feed (voir [DECISIONS.md](DECISIONS.md) ADR-026) a révélé que `PageView` ignore silencieusement toute physique personnalisée (y compris son `spring`) tant que `pageSnapping` reste à `true` (la valeur par défaut, utilisée par les deux galeries). Il est donc probable que le ressort plus vif de la sous-étape 2.1 n'ait jamais été réellement actif pour le settle de ces galeries. Non corrigé pour l'instant (hors périmètre du correctif qui l'a révélé, risque de régression sur un swipe horizontal qui fonctionne déjà bien) — à vérifier et corriger (probablement via le même `pageSnapping: false`) lors d'un prochain passage de polish.
 
 ## Future
 

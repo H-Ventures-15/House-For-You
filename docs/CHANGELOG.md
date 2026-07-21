@@ -8,6 +8,19 @@
 
 ## [Non publié] — 0.1.0
 
+### 2026-07-21 — Correctif UX ciblé (fluidité de la bottom sheet, seuil naturel du swipe vertical)
+
+**Corrections**
+- Fermeture de la feuille de filtres par swipe : élimination de la saccade rapportée sur iPhone. Le flou de fond (`BackdropFilter`) ne se recalcule plus au rythme du drag (coût par frame parmi les plus élevés de Flutter) — seul un fondu d'assombrissement, bon marché, reste continu pendant le geste. Le règlement au relâchement (confirmation ou annulation) utilise désormais un `SpringSimulation` qui part de la vitesse réelle de relâchement, jamais une animation à durée fixe qui l'ignorait — voir [DECISIONS.md](DECISIONS.md) ADR-025.
+- Swipe vertical du feed rendu moins sensible : un changement de bien exige désormais une intention nette (distance ≥ 20 % de la hauteur, ou vitesse ≥ 1200 px/s pour un swipe court), plus un simple flick de quelques millimètres. Découverte technique importante au passage : `PageView` ignore silencieusement toute physique personnalisée pour la décision de changement de page tant que `pageSnapping` (par défaut `true`) n'est pas explicitement mis à `false` — voir [DECISIONS.md](DECISIONS.md) ADR-026 pour le détail. Uniquement le feed vertical est concerné ; les deux galeries photo horizontales restent inchangées.
+- Tests : `test/discover_feed_test.dart` (seuil naturel du swipe vertical — petit drag, distance suffisante, swipe court et rapide, geste diagonal faible), `test/filters_sheet_test.dart` (suivi du doigt en direct pendant le drag) — 72 tests au total désormais.
+
+**Décisions produit**
+- Voir [DECISIONS.md](DECISIONS.md) ADR-025 (fluidité bottom sheet) et ADR-026 (seuil du swipe vertical + découverte `pageSnapping`).
+
+**Non modifié (revérifié sans régression)**
+- Préchargement, `RepaintBoundary`, favoris, conservation du bien courant, swipe horizontal des galeries photo (`SnappyPageScrollPhysics` inchangée sur ces deux `PageView`) : aucune régression, tests correspondants toujours au vert.
+
 ### 2026-07-21 — Correctif rapide post-Sprint 2.5 (favoris sans compte, fermeture des filtres)
 
 **Corrections**

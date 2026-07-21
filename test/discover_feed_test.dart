@@ -55,6 +55,109 @@ void main() {
     });
   });
 
+  group('seuil naturel du swipe vertical (correctif post-Sprint 2.5)', () {
+    testWidgets(
+      'un petit drag vertical revient au bien courant (pas de changement)',
+      (tester) async {
+        await mockNetworkImagesFor(() async {
+          final first = _feedOrder[0];
+
+          await tester.pumpWidget(_wrap(const DiscoverScreen()));
+          await tester.pumpAndSettle();
+
+          // ~8 % de la hauteur de page (viewport de test 600px) — bien en
+          // dessous du seuil de distance (20 %) et sans vélocité franche.
+          await tester.drag(
+            find.byKey(const Key('discover-feed')),
+            const Offset(0, -50),
+          );
+          await tester.pumpAndSettle();
+
+          expect(
+            tester.getTopLeft(find.byKey(ValueKey(first))),
+            offsetMoreOrLessEquals(Offset.zero, epsilon: 1),
+          );
+        });
+      },
+    );
+
+    testWidgets(
+      'un swipe vertical dépassant le seuil de distance change de bien',
+      (tester) async {
+        await mockNetworkImagesFor(() async {
+          final second = _feedOrder[1];
+
+          await tester.pumpWidget(_wrap(const DiscoverScreen()));
+          await tester.pumpAndSettle();
+
+          // ~25 % de la hauteur de page — au-dessus du seuil de distance
+          // (20 %), sans vélocité particulière.
+          await tester.drag(
+            find.byKey(const Key('discover-feed')),
+            const Offset(0, -150),
+          );
+          await tester.pumpAndSettle();
+
+          expect(
+            tester.getTopLeft(find.byKey(ValueKey(second))),
+            offsetMoreOrLessEquals(Offset.zero, epsilon: 1),
+          );
+        });
+      },
+    );
+
+    testWidgets(
+      'un swipe vertical court mais rapide change quand même de bien',
+      (tester) async {
+        await mockNetworkImagesFor(() async {
+          final second = _feedOrder[1];
+
+          await tester.pumpWidget(_wrap(const DiscoverScreen()));
+          await tester.pumpAndSettle();
+
+          // ~10 % de distance seulement, mais vélocité élevée — doit
+          // valider le changement via le seuil de vitesse.
+          await tester.fling(
+            find.byKey(const Key('discover-feed')),
+            const Offset(0, -60),
+            3000,
+          );
+          await tester.pumpAndSettle();
+
+          expect(
+            tester.getTopLeft(find.byKey(ValueKey(second))),
+            offsetMoreOrLessEquals(Offset.zero, epsilon: 1),
+          );
+        });
+      },
+    );
+
+    testWidgets(
+      'un geste diagonal faible ne déclenche pas de changement de bien',
+      (tester) async {
+        await mockNetworkImagesFor(() async {
+          final first = _feedOrder[0];
+
+          await tester.pumpWidget(_wrap(const DiscoverScreen()));
+          await tester.pumpAndSettle();
+
+          // Petit déplacement diagonal (composantes x et y faibles) — ni la
+          // distance verticale ni la vitesse ne doivent suffire.
+          await tester.drag(
+            find.byKey(const Key('discover-feed')),
+            const Offset(15, -20),
+          );
+          await tester.pumpAndSettle();
+
+          expect(
+            tester.getTopLeft(find.byKey(ValueKey(first))),
+            offsetMoreOrLessEquals(Offset.zero, epsilon: 1),
+          );
+        });
+      },
+    );
+  });
+
   testWidgets(
     'le swipe horizontal change de photo sans changer de bien ni de page',
     (tester) async {

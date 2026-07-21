@@ -151,6 +151,16 @@ class _DiscoverFeedState extends ConsumerState<_DiscoverFeed> {
   double? _lastRawPage;
   int _lastSettledIndex = 0;
 
+  /// Bien affiché **avant** le début du geste en cours — capturé une seule
+  /// fois par `ScrollStartNotification`, jamais mis à jour pendant le drag.
+  /// Sert d'origine fiable à `FeedPageScrollPhysics` : `_lastSettledIndex`,
+  /// lui, est mis à jour par `onPageChanged` dès qu'un simple `page.round()`
+  /// dépasse 50 % — donc potentiellement **pendant** le drag, avant même que
+  /// notre propre seuil n'ait tranché — ce qui inverserait le sens du calcul
+  /// de progression pour un swipe lent dépassant 50 % (voir DECISIONS.md
+  /// ADR-026).
+  int _gestureOriginPage = 0;
+
   /// Valeur de `_barVisibility` juste avant un appui long sur le média de
   /// la carte visible — restaurée telle quelle au relâchement (et non
   /// remise à 1) pour respecter l'état de scroll dans lequel se trouvait
@@ -191,6 +201,17 @@ class _DiscoverFeedState extends ConsumerState<_DiscoverFeed> {
     _precacheNeighbors(index);
     _barVisibility.value = index > _lastSettledIndex ? 0 : 1;
     _lastSettledIndex = index;
+  }
+
+  /// Capture l'origine du geste dès qu'il démarre (voir `_gestureOriginPage`)
+  /// — ne réagit jamais aux notifications de scroll en profondeur (ex. la
+  /// galerie photo horizontale d'une carte, `depth != 0`).
+  bool _handleFeedScrollStart(ScrollNotification notification) {
+    if (notification.depth == 0 && notification is ScrollStartNotification) {
+      final metrics = notification.metrics as PageMetrics;
+      _gestureOriginPage = metrics.page!.round();
+    }
+    return false;
   }
 
   /// Précharge les photos du bien précédent et du bien suivant pour que le
@@ -304,47 +325,61 @@ class _DiscoverFeedState extends ConsumerState<_DiscoverFeed> {
         // un blanc de page, mais comme une immersion continue façon
         // TikTok/Instagram — jamais de flash blanc pendant le swipe.
         const ColoredBox(color: Color(0xFF0B0B0C)),
-        PageView.builder(
-          key: const Key('discover-feed'),
-          controller: _controller,
-          scrollDirection: Axis.vertical,
-          onPageChanged: _onPageChanged,
-          // Ressort de fin de geste plus vif (voir SnappyPageScrollPhysics).
-          // `allowImplicitScrolling` améliore aussi la navigation VoiceOver/
-          // TalkBack (le geste de scroll implicite passe au bien suivant
-          // plutôt que d'essayer de scroller son contenu).
-          physics: const SnappyPageScrollPhysics(),
-          allowImplicitScrolling: true,
-          itemCount: widget.properties.length,
-          itemBuilder: (context, index) {
-            final property = widget.properties[index];
-            // Isole le repaint de chaque carte : le scroll du PageView ne
-            // doit jamais forcer un repaint des cartes voisines.
-            return RepaintBoundary(
-              child: AnimatedBuilder(
-                animation: _controller,
-                builder: (context, child) {
-                  final page = _controller.hasClients
-                      ? (_controller.page ?? _controller.initialPage.toDouble())
-                      : index.toDouble();
-                  final distance = (page - index).abs().clamp(0.0, 1.0);
-                  final scale = 1 - distance * 0.06;
-                  return Transform.scale(scale: scale, child: child);
-                },
-                child: PropertyCard.feed(
-                  key: ValueKey(property.id),
-                  property: property,
-                  isFavorite: favoriteIds.contains(property.id),
-                  agency: widget.agenciesById[property.agencyId],
-                  onTap: () => context.push('/property/${property.id}'),
-                  onToggleFavorite: () => _handleToggleFavorite(property),
-                  onShare: () => _handleShare(property),
-                  onLongPressStart: _handleLongPressStart,
-                  onLongPressEnd: _handleLongPressEnd,
+        NotificationListener<ScrollNotification>(
+          onNotification: _handleFeedScrollStart,
+          child: PageView.builder(
+            key: const Key('discover-feed'),
+            controller: _controller,
+            scrollDirection: Axis.vertical,
+            onPageChanged: _onPageChanged,
+            // Ressort de fin de geste plus vif + seuil de changement de page
+            // naturel (distance et/ou vitesse, jamais un simple flick de
+            // quelques millimètres) — voir `FeedPageScrollPhysics`.
+            // `pageSnapping: false` est indispensable : `PageView` enveloppe
+            // sinon toujours toute physique fournie dans sa propre
+            // `_kPagePhysics` interne (voir DECISIONS.md ADR-026), qui
+            // déciderait alors seule du changement de page (avec sa tolérance
+            // de vitesse quasi nulle) sans jamais consulter notre logique —
+            // `FeedPageScrollPhysics` gère elle-même l'accrochage de page.
+            // `allowImplicitScrolling` améliore aussi la navigation VoiceOver/
+            // TalkBack (le geste de scroll implicite passe au bien suivant
+            // plutôt que d'essayer de scroller son contenu).
+            physics:
+                FeedPageScrollPhysics(currentPage: () => _gestureOriginPage),
+            pageSnapping: false,
+            allowImplicitScrolling: true,
+            itemCount: widget.properties.length,
+            itemBuilder: (context, index) {
+              final property = widget.properties[index];
+              // Isole le repaint de chaque carte : le scroll du PageView ne
+              // doit jamais forcer un repaint des cartes voisines.
+              return RepaintBoundary(
+                child: AnimatedBuilder(
+                  animation: _controller,
+                  builder: (context, child) {
+                    final page = _controller.hasClients
+                        ? (_controller.page ??
+                            _controller.initialPage.toDouble())
+                        : index.toDouble();
+                    final distance = (page - index).abs().clamp(0.0, 1.0);
+                    final scale = 1 - distance * 0.06;
+                    return Transform.scale(scale: scale, child: child);
+                  },
+                  child: PropertyCard.feed(
+                    key: ValueKey(property.id),
+                    property: property,
+                    isFavorite: favoriteIds.contains(property.id),
+                    agency: widget.agenciesById[property.agencyId],
+                    onTap: () => context.push('/property/${property.id}'),
+                    onToggleFavorite: () => _handleToggleFavorite(property),
+                    onShare: () => _handleShare(property),
+                    onLongPressStart: _handleLongPressStart,
+                    onLongPressEnd: _handleLongPressEnd,
+                  ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
         Positioned(
           top: 0,

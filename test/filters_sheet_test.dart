@@ -254,6 +254,50 @@ void main() {
       },
     );
 
+    testWidgets(
+      'la feuille suit le doigt en direct pendant le drag (avant '
+      'relâchement)',
+      (tester) async {
+        await mockNetworkImagesFor(() async {
+          await tester.pumpWidget(_wrap(const DiscoverScreen()));
+          await tester.pumpAndSettle();
+
+          await tester.tap(find.byTooltip('Filtres'));
+          await tester.pumpAndSettle();
+
+          final headerPositionBefore = tester.getTopLeft(
+            find.text('Filtres'),
+          );
+          final listCenter = tester.getCenter(find.byType(ListView));
+
+          final gesture = await tester.startGesture(listCenter);
+          // Plusieurs petits déplacements plutôt qu'un seul grand : dépasse
+          // le seuil de "touch slop" de l'arène de gestes dès le premier
+          // pas, puis chaque pas suivant suit le doigt au pixel près.
+          for (var i = 0; i < 4; i++) {
+            await gesture.moveBy(const Offset(0, 20));
+            await tester.pump();
+          }
+
+          final headerPositionDuring = tester.getTopLeft(
+            find.text('Filtres'),
+          );
+          // La feuille a suivi le doigt en direct, avant même le
+          // relâchement (pas seulement au moment de régler la fermeture/
+          // l'annulation) — une partie du tout premier pas peut être
+          // absorbée par le seuil de "touch slop" de l'arène de gestes,
+          // d'où une marge plutôt qu'une égalité stricte avec les 80 px
+          // déplacés.
+          final moved = headerPositionDuring.dy - headerPositionBefore.dy;
+          expect(moved, greaterThan(50));
+          expect(moved, lessThanOrEqualTo(80));
+
+          await gesture.up();
+          await tester.pumpAndSettle();
+        });
+      },
+    );
+
     testWidgets('la croix et le retour système restent fonctionnels', (
       tester,
     ) async {
