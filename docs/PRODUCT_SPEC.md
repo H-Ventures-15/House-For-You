@@ -130,15 +130,31 @@ Le cœur de l'expérience House For You. Un `PageView` vertical plein écran (`_
 
 Cette séparation stricte des zones de gestes est une décision produit documentée dans [DECISIONS.md](DECISIONS.md). L'appui long ne masque jamais la bottom bar de navigation (voir [DECISIONS.md](DECISIONS.md) ADR-015), et aucune de ces actions n'est accessible uniquement par geste : un bouton favori et une zone d'ouverture de fiche restent visibles en permanence, tous deux porteurs de labels sémantiques pour les lecteurs d'écran (voir [UX_RULES.md](UX_RULES.md) section 16).
 
-**Chaque carte affiche** : galerie photo/vidéo plein écran avec indicateur de progression façon stories, dégradé de lisibilité à trois paliers, badge agence (logo + nom), prix, ville, type de bien, surface, chambres, salles de bain, description tronquée à 2 lignes + « Voir plus », boutons favori/partager avec ombre portée.
+**Chaque carte affiche** : galerie photo/vidéo plein écran avec indicateur de progression façon stories (segments qui distinguent une vidéo par une petite icône caméra, voir [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md)), dégradé de lisibilité à trois paliers concentré sur la zone basse utile, badge agence (logo + nom), jusqu'à 2 badges éditoriaux/commerciaux (Exclusivité, Coup de cœur, Prix réduit, Visite virtuelle, Nouveau — voir section 10.1 bis), prix, ville, type de bien, surface, chambres, salles de bain, description tronquée à 2 lignes + « Voir plus », boutons favori/partager avec ombre portée et micro-animation au tap (voir [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md), `PressableScale`).
 
 **Fluidité (étape 2.1)** : précache des photos du bien précédent et suivant dès qu'une page se stabilise (`precacheImage`), `RepaintBoundary` par carte pour isoler les repaints, `AutomaticKeepAliveClientMixin` pour préserver l'état (photo affichée) d'une carte déjà visitée. Le facteur dominant de latence perçue dans un feed à médias réseau est le téléchargement de l'image, pas la construction du widget — voir [DECISIONS.md](DECISIONS.md) pour le détail du raisonnement.
 
-**Tracking** : chaque impression de bien (`feedImpression`), ouverture de fiche (`detailOpen`), partage (`share`) et ajout/retrait de favori (`favoriteAdd`/`favoriteRemove`) est envoyé à `AnalyticsService` (mock aujourd'hui — logué en console — Supabase à l'étape 9).
+**Tracking** : chaque impression de bien (`feedImpression`), ouverture de fiche (`detailOpen`), partage (`share`) et ajout/retrait de favori (`favoriteAdd`/`favoriteRemove`) est envoyé à `AnalyticsService` (mock aujourd'hui — logué en console — Supabase à l'étape 9). Un partage annulé (feuille système fermée sans choisir d'action) n'est jamais compté comme un partage réel (`ShareResultStatus.dismissed`, voir Sprint 2.5).
+
+### 10.1 bis Badges éditoriaux/commerciaux (Sprint 2.5)
+
+Jusqu'à **2 badges maximum** affichés simultanément par carte (jamais plus, pour ne jamais surcharger), dérivés à la volée depuis `Property` (`propertyBadges()`, `lib/data/models/property_badge.dart`) — jamais stockés séparément :
+
+| Badge | Condition |
+|---|---|
+| Exclusivité | `Property.isExclusive` |
+| Coup de cœur | `Property.isFeatured` |
+| Prix réduit | `Property.previousPrice` renseigné et supérieur au prix actuel |
+| Visite virtuelle | `Property.hasVirtualTour` |
+| Nouveau | `publishedAt` de moins de 14 jours |
+
+Ordre de priorité (le plus important en premier, seuls les 2 premiers sont montrés) : Exclusivité → Coup de cœur → Prix réduit → Visite virtuelle → Nouveau. Mock à cette étape (quelques biens de démonstration dans `mock_property_data.dart` portent ces champs) ; le modèle est déjà celui qui alimentera la vraie donnée à la bascule Supabase (étape 10).
 
 ### 10.2 Recherche — feuille de filtres
 
 Accessible depuis la barre flottante du feed. Feuille plein écran qui monte depuis le bas avec un fond flouté (jamais une nouvelle page — voir `lib/core/widgets/blurred_modal_sheet.dart`).
+
+**Fermeture** — trois chemins équivalents (Sprint 2.5) : la croix, le retour système, et le swipe vers le bas depuis n'importe quelle zone du contenu une fois celui-ci revenu en haut (le scroll interne reste toujours prioritaire tant qu'il n'est pas à son sommet). Le fond flouté se dé-floute/s'éclaircit progressivement pendant le geste, jamais un saut brutal.
 
 **Hiérarchie à deux niveaux** (depuis la sous-étape 2.3) — jamais l'impression de remplir un formulaire administratif : les critères principaux sont immédiatement visibles, les critères avancés vivent sous une section repliable.
 

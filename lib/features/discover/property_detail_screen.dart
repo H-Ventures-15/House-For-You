@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
@@ -11,6 +12,7 @@ import '../../core/theme/app_typography.dart';
 import '../../core/widgets/error_state.dart';
 import '../../core/widgets/loading_state.dart';
 import '../../core/widgets/ph_button.dart';
+import '../../core/widgets/pressable_scale.dart';
 import '../../core/widgets/property_card.dart';
 import '../../core/widgets/snappy_page_physics.dart';
 import '../../data/models/agency.dart';
@@ -47,6 +49,10 @@ class _PropertyDetailScreenState extends ConsumerState<PropertyDetailScreen>
     duration: const Duration(milliseconds: 260),
   );
 
+  /// Seuil de fermeture confirmée (32 % de la largeur) — voir ADR-004.
+  static const double _dismissThreshold = 0.32;
+  bool _dismissHapticFired = false;
+
   @override
   void dispose() {
     _dismissController.dispose();
@@ -57,10 +63,21 @@ class _PropertyDetailScreenState extends ConsumerState<PropertyDetailScreen>
     final width = MediaQuery.of(context).size.width;
     _dismissController.value =
         (_dismissController.value + details.delta.dx / width).clamp(0.0, 1.0);
+    // Retour haptique léger au franchissement du seuil de fermeture — une
+    // seule fois par franchissement, pas à chaque frame de drag (voir
+    // UX_RULES.md section 7).
+    final crossed = _dismissController.value >= _dismissThreshold;
+    if (crossed && !_dismissHapticFired) {
+      _dismissHapticFired = true;
+      HapticFeedback.lightImpact();
+    } else if (!crossed && _dismissHapticFired) {
+      _dismissHapticFired = false;
+    }
   }
 
   void _onDismissDragEnd(DragEndDetails details) {
-    final shouldDismiss = _dismissController.value > 0.32 ||
+    _dismissHapticFired = false;
+    final shouldDismiss = _dismissController.value > _dismissThreshold ||
         details.velocity.pixelsPerSecond.dx > 700;
     if (shouldDismiss) {
       _dismissController
@@ -96,12 +113,17 @@ class _PropertyDetailScreenState extends ConsumerState<PropertyDetailScreen>
   }
 
   Future<void> _handleShare(Property property) async {
-    await SharePlus.instance.share(
+    // Lien placeholder stable (pas encore de deep link réel — voir
+    // BACKLOG.md).
+    final result = await SharePlus.instance.share(
       ShareParams(
         text: 'Découvre ce bien sur House For You : ${property.title} — '
-            '${formatPropertyPrice(property)} à ${property.city}.',
+            '${formatPropertyPrice(property)} à ${property.city}.\n'
+            'https://houseforyou.be/biens/${property.id}',
       ),
     );
+    // Un partage annulé ne doit jamais être compté comme un partage réel.
+    if (result.status == ShareResultStatus.dismissed) return;
     await ref.read(analyticsServiceProvider).track(
           PropertyEvent(
             propertyId: property.id,
@@ -772,19 +794,21 @@ class _RoundIconButton extends StatelessWidget {
     return Semantics(
       button: true,
       label: semanticLabel,
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(AppSpacing.sm),
-          decoration: const BoxDecoration(
-            color: Colors.white70,
-            shape: BoxShape.circle,
-            boxShadow: kFloatingButtonShadow,
-          ),
-          child: Icon(
-            icon,
-            color: iconColor ?? AppColors.textPrimary,
-            size: 22,
+      child: PressableScale(
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.all(AppSpacing.sm),
+            decoration: const BoxDecoration(
+              color: Colors.white70,
+              shape: BoxShape.circle,
+              boxShadow: kFloatingButtonShadow,
+            ),
+            child: Icon(
+              icon,
+              color: iconColor ?? AppColors.textPrimary,
+              size: 22,
+            ),
           ),
         ),
       ),

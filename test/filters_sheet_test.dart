@@ -165,6 +165,97 @@ void main() {
     },
   );
 
+  group('fermeture par swipe vers le bas (Sprint 2.5)', () {
+    testWidgets('un swipe long vers le bas depuis le haut ferme la feuille', (
+      tester,
+    ) async {
+      await mockNetworkImagesFor(() async {
+        await tester.pumpWidget(_wrap(const DiscoverScreen()));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byTooltip('Filtres'));
+        await tester.pumpAndSettle();
+        expect(find.text('Filtres'), findsOneWidget);
+
+        // Le contenu est déjà en haut : un swipe vers le bas doit être
+        // interprété comme un geste de fermeture, pas comme un scroll.
+        await tester.fling(find.byType(ListView), const Offset(0, 500), 800);
+        await tester.pumpAndSettle();
+
+        expect(find.text('Filtres'), findsNothing);
+      });
+    });
+
+    testWidgets(
+      'un swipe court et lent ramène la feuille en place sans la fermer',
+      (tester) async {
+        await mockNetworkImagesFor(() async {
+          await tester.pumpWidget(_wrap(const DiscoverScreen()));
+          await tester.pumpAndSettle();
+
+          await tester.tap(find.byTooltip('Filtres'));
+          await tester.pumpAndSettle();
+
+          // Distance courte, vitesse faible : sous les deux seuils de
+          // fermeture (32 % de la hauteur ou vitesse de relâchement).
+          await tester.drag(find.byType(ListView), const Offset(0, 40));
+          await tester.pumpAndSettle();
+
+          expect(find.text('Filtres'), findsOneWidget);
+        });
+      },
+    );
+
+    testWidgets(
+      'quand le contenu est scrollé, le swipe vers le bas fait défiler '
+      'la liste plutôt que de fermer la feuille',
+      (tester) async {
+        await mockNetworkImagesFor(() async {
+          await tester.pumpWidget(_wrap(const DiscoverScreen()));
+          await tester.pumpAndSettle();
+
+          await tester.tap(find.byTooltip('Filtres'));
+          await tester.pumpAndSettle();
+
+          // Défile vers le bas du contenu en premier.
+          await tester.drag(find.byType(ListView), const Offset(0, -400));
+          await tester.pumpAndSettle();
+          expect(find.text('Type de bien'), findsOneWidget);
+
+          // Un swipe vers le bas ramène d'abord le scroll interne en haut —
+          // ne doit pas fermer la feuille tant qu'elle n'est pas déjà en
+          // haut (voir UX_RULES.md section 9).
+          await tester.fling(find.byType(ListView), const Offset(0, 300), 800);
+          await tester.pump();
+
+          expect(find.text('Filtres'), findsOneWidget);
+        });
+      },
+    );
+
+    testWidgets('la croix et le retour système restent fonctionnels', (
+      tester,
+    ) async {
+      await mockNetworkImagesFor(() async {
+        await tester.pumpWidget(_wrap(const DiscoverScreen()));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byTooltip('Filtres'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('Fermer'));
+        await tester.pumpAndSettle();
+        expect(find.text('Filtres'), findsNothing);
+
+        await tester.tap(find.byTooltip('Filtres'));
+        await tester.pumpAndSettle();
+        final dynamic widgetsAppState = tester.state(find.byType(WidgetsApp));
+        await widgetsAppState.didPopRoute();
+        await tester.pumpAndSettle();
+        expect(find.text('Filtres'), findsNothing);
+      });
+    });
+  });
+
   testWidgets(
     'zéro résultat après filtrage affiche les trois actions de secours',
     (tester) async {

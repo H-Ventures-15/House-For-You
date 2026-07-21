@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
+import 'pressable_scale.dart';
 
 /// Barre flottante compacte au-dessus du feed Découvrir — résumé de la
 /// recherche actuelle (localisation/type/budget, mock à cette étape),
@@ -105,12 +106,14 @@ class _BarIconButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Tooltip(
       message: tooltip,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppRadius.pill),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.sm),
-          child: Icon(icon, color: AppColors.textPrimary, size: 20),
+      child: PressableScale(
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppRadius.pill),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.sm),
+            child: Icon(icon, color: AppColors.textPrimary, size: 20),
+          ),
         ),
       ),
     );

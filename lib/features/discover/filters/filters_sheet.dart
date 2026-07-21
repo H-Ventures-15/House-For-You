@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/blurred_modal_sheet.dart';
+import '../../../core/widgets/pressable_scale.dart';
 import '../../../data/models/property.dart';
 import '../../../data/models/saved_search.dart';
 import '../../../data/models/search_filters.dart';
@@ -102,6 +104,12 @@ class _FiltersSheetState extends ConsumerState<FiltersSheet> {
                 behavior: HitTestBehavior.opaque,
                 onTap: () => _locationFocusNode.unfocus(),
                 child: ListView(
+                  // Toujours "draggable", même quand le contenu tient déjà
+                  // dans la hauteur visible (peu de filtres actifs) — sans
+                  // cela, aucune notification de scroll ne remonte et le
+                  // swipe de fermeture de la feuille (voir
+                  // `BlurredModalSheet`) resterait inopérant dans ce cas.
+                  physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(
                     AppSpacing.lg,
                     AppSpacing.sm,
@@ -399,6 +407,7 @@ class _FiltersSheetState extends ConsumerState<FiltersSheet> {
             onTap: () {
               final changingTransaction =
                   filters.transactionType != option.value;
+              if (changingTransaction) HapticFeedback.selectionClick();
               _updateFilters(
                 (f) => f.copyWith(
                   transactionType: () => option.value,
@@ -815,6 +824,7 @@ class _FiltersSheetState extends ConsumerState<FiltersSheet> {
   }
 
   void _handleLoadSavedSearch(SavedSearch search) {
+    HapticFeedback.selectionClick();
     ref.read(searchFiltersControllerProvider.notifier).update(
           (_) => search.filters,
         );
@@ -938,17 +948,22 @@ class _Footer extends StatelessWidget {
         child: SizedBox(
           width: double.infinity,
           height: 56,
-          child: ElevatedButton(
-            onPressed: onShowResults,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppRadius.pill),
+          child: PressableScale(
+            child: ElevatedButton(
+              onPressed: () {
+                HapticFeedback.selectionClick();
+                onShowResults();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.pill),
+                ),
+                textStyle: AppTypography.button.copyWith(fontSize: 17),
               ),
-              textStyle: AppTypography.button.copyWith(fontSize: 17),
+              child: Text('Afficher $count biens'),
             ),
-            child: Text('Afficher $count biens'),
           ),
         ),
       ),

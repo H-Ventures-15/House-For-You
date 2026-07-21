@@ -241,12 +241,19 @@ class _DiscoverFeedState extends ConsumerState<_DiscoverFeed> {
   }
 
   Future<void> _handleShare(Property property) async {
-    await SharePlus.instance.share(
+    // Lien placeholder stable (pas encore de deep link réel — voir
+    // BACKLOG.md) : suffisant pour un partage texte cohérent tant que la
+    // résolution `/property/:id` n'existe pas côté web public.
+    final result = await SharePlus.instance.share(
       ShareParams(
         text: 'Découvre ce bien sur House For You : ${property.title} — '
-            '${formatPropertyPrice(property)} à ${property.city}.',
+            '${formatPropertyPrice(property)} à ${property.city}.\n'
+            'https://houseforyou.be/biens/${property.id}',
       ),
     );
+    // Un partage annulé (feuille système fermée sans choisir d'action) ne
+    // doit jamais être compté comme un partage réel dans les analytics.
+    if (result.status == ShareResultStatus.dismissed) return;
     await ref.read(analyticsServiceProvider).track(
           PropertyEvent(
             propertyId: property.id,

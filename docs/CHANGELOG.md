@@ -8,6 +8,28 @@
 
 ## [Non publié] — 0.1.0
 
+### 2026-07-21 — Micro-interactions premium & corrections UX (sous-étape 2.4 / « Sprint 2.5 »)
+
+**Ajouts**
+- Fermeture de la feuille de filtres par swipe vers le bas — suit le doigt en direct, priorité au scroll interne tant qu'il n'est pas remonté en haut, seuil de 32 % ou de vitesse, fond flouté proportionnel au geste (`lib/core/widgets/blurred_modal_sheet.dart`).
+- Badges éditoriaux/commerciaux (Exclusivité, Coup de cœur, Prix réduit, Visite virtuelle, Nouveau) — jusqu'à 2 par carte, dérivés à la volée depuis `Property` (`lib/data/models/property_badge.dart`), champs mock ajoutés (`isExclusive`, `isFeatured`, `hasVirtualTour`, `previousPrice`).
+- `PressableScale` (`lib/core/widgets/pressable_scale.dart`) — micro-réduction à l'appui, appliquée à `PhButton`, aux boutons favori/partager (feed et fiche détail) et aux icônes de la barre flottante.
+- Retours haptiques cohérents : changement d'onglet de la navigation inférieure, sélection réelle du type de transaction, application des filtres, chargement d'une recherche sauvegardée, franchissement du seuil de fermeture (fiche détail et feuille de filtres).
+- Animation du favori affinée : rebond marqué à l'ajout, fondu discret sans effet spectaculaire au retrait.
+- Indicateur de médias : distinction photo/vidéo (icône caméra sur les segments vidéo), légère ombre portée pour la lisibilité sur fond clair.
+- Dégradés du feed retravaillés : intensité concentrée sur la zone basse utile (prix/titre/description), jamais de grande zone noire.
+- Partage : lien placeholder stable inclus dans le texte partagé, annulation (feuille système fermée sans choisir d'action) jamais comptée comme un partage réel dans les analytics.
+- Tests : `test/main_shell_test.dart` (séquences de navigation complètes), `test/filters_sheet_test.dart` (fermeture par swipe), `test/property_badge_test.dart` (nouveau fichier), `test/property_card_gestures_test.dart` (badges, distinction vidéo) — 63 tests au total désormais.
+
+**Investigation**
+- Bug de navigation rapporté (Découvrir↔Favoris/Profil) : investigué en profondeur (lecture du code `go_router`, instrumentation, tests dédiés) — aucun défaut trouvé dans le code, non reproduit par `flutter test`. Le symptôme observé provenait du serveur web de développement (jamais l'arbitre officiel, voir [DECISIONS.md](DECISIONS.md) ADR-018/019). Tests de régression permanents ajoutés à la place d'une modification spéculative de l'architecture.
+
+**Non modifié (revérifié sans régression)**
+- Fluidité (2.1), gestes (2.2), filtres/recherches sauvegardées (2.3) : fichiers concernés non altérés en profondeur, seuls des ajouts ciblés (imports, wrapping `PressableScale`, nouveaux champs).
+
+**Décisions produit**
+- Voir [DECISIONS.md](DECISIONS.md) ADR-019 (navigation), ADR-020 (swipe de fermeture), ADR-021 (badges), ADR-022 (partage).
+
 ### 2026-07-20 — Gouvernance : Mobile First absolu + QA_CHECKLIST officielle
 
 **Ajouts**

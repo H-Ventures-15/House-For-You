@@ -2,7 +2,7 @@
 
 > **Statut : vivant.** Source de vérité technique du projet. Supersède la partie architecture d'[architecture-mvp.md](architecture-mvp.md) (conservé comme document historique du cahier des charges initial — voir note en tête de ce fichier). Toute évolution structurelle (nouveau dossier, nouveau pattern, nouvelle dépendance) doit être reflétée ici avant le commit qui l'introduit.
 >
-> Dernière mise à jour : 2026-07-20 (fin de la sous-étape 2.3).
+> Dernière mise à jour : 2026-07-21 (fin de la sous-étape 2.4 — micro-interactions premium & corrections UX).
 
 ---
 
@@ -97,6 +97,7 @@ lib/
 | `lead.dart` | `Lead`, `LeadType`, `LeadStatus` | Modèle prêt, non consommé (attend l'étape 7) |
 | `search_filters.dart` | `SearchFilters`, `PropertyCondition`, `PublicationRecency`, `SortOption` | Utilisé — voir section 6 |
 | `saved_search.dart` | `SavedSearch` | Utilisé — porte de vrais `SearchFilters` depuis la sous-étape 2.3 (plus un simple libellé statique), voir section 5 bis |
+| `property_badge.dart` | `PropertyBadge`, `propertyBadges()`, `propertyBadgeLabel()`, `propertyBadgeIcon()` | Utilisé depuis la sous-étape 2.4 — dérive les badges affichés sur le feed depuis `Property.isExclusive`/`isFeatured`/`hasVirtualTour`/`previousPrice`/`publishedAt`, voir [DECISIONS.md](DECISIONS.md) ADR-021 |
 
 ## 5. Repositories & datasources mock
 
@@ -180,21 +181,30 @@ Objet non persisté, construit par la feuille de filtres (étape 2) et, plus tar
 - Changer de type de transaction réinitialise `budgetMin`/`budgetMax` (sauf re-tap de la transaction déjà sélectionnée) — voir [DECISIONS.md](DECISIONS.md) et [UX_RULES.md](UX_RULES.md) section 17.
 - L'état "zéro résultat" (`_NoFilteredResults`, `discover_screen.dart`) remplace le feed entier — y compris la barre de recherche flottante, qui vit dans `_DiscoverFeed` — quand `filtered.isEmpty` ; ses trois actions (`showFiltersSheet`, `showSavedSearchesSheet`, `searchFiltersControllerProvider.notifier.reset()`) restent toutes accessibles depuis cet écran de secours.
 
+## 10 quater. Micro-interactions premium (sous-étape 2.4)
+
+- **Fermeture de la feuille de filtres par swipe** (`lib/core/widgets/blurred_modal_sheet.dart`, `_DismissibleSheet`) — voir [DECISIONS.md](DECISIONS.md) ADR-020 pour le choix technique (notifications de scroll plutôt qu'un `GestureDetector` concurrent).
+- **`PressableScale`** (`lib/core/widgets/pressable_scale.dart`) — `Listener` (jamais `GestureDetector`, pour ne jamais intercepter le tap du widget enveloppé) piloté par `onPointerDown`/`onPointerUp`/`onPointerCancel`, anime une `AnimatedScale` à 0.94 sur 120 ms. Enveloppe `PhButton` (donc tous ses usages : CTA des filtres, « Contacter l'agence »...), les boutons favori/partager du feed et de la fiche détail, les icônes de la barre flottante.
+- **Badges éditoriaux** (`lib/data/models/property_badge.dart`, `_BadgeStack`/`_BadgeChip` dans `property_card.dart`) — voir [DECISIONS.md](DECISIONS.md) ADR-021.
+- **Retours haptiques** — `HapticFeedback.selectionClick()` sur changement d'onglet (`main_shell.dart`), sélection réelle du type de transaction et application des filtres (`filters_sheet.dart`), chargement d'une recherche sauvegardée (`filters_sheet.dart`, `saved_searches_sheet.dart`) ; `HapticFeedback.lightImpact()` au franchissement du seuil de fermeture (fiche détail, feuille de filtres), une seule fois par franchissement (bool `_hapticFired`/`_dismissHapticFired`, réinitialisé si on repasse sous le seuil).
+- **Partage** — vérification de `ShareResult.status` avant de tracker l'évènement `share` (voir [DECISIONS.md](DECISIONS.md) ADR-022).
+
 ## 11. Tests
 
-9 fichiers, 39 tests (`flutter test`). Conventions : voir [CONTRIBUTING.md](CONTRIBUTING.md).
+10 fichiers, 63 tests (`flutter test`). Conventions : voir [CONTRIBUTING.md](CONTRIBUTING.md).
 
 | Fichier | Couvre |
 |---|---|
 | `mock_data_test.dart` | Intégrité des données mock (agences référencées, photos de couverture, round-trip JSON) |
-| `main_shell_test.dart` | Navigation 4 onglets |
+| `main_shell_test.dart` | Navigation 4 onglets, séquences complètes de la sous-étape 2.4 (Découvrir↔Favoris↔Profil, changements rapides, conservation du bien courant et des filtres actifs) |
 | `discover_feed_test.dart` | Indépendance swipe vertical/horizontal, barre flottante (masquage/réapparition au scroll et à l'appui long, état précédent restauré), feuille de filtres, recherches enregistrées, `RepaintBoundary` |
-| `property_card_gestures_test.dart` | Séparation stricte des zones de geste (média = like/appui long, texte = ouvrir la fiche), masquage/restauration du chrome à l'appui long, non-déclenchement du favori/de la fiche pendant l'appui long, labels sémantiques |
+| `property_card_gestures_test.dart` | Séparation stricte des zones de geste (média = like/appui long, texte = ouvrir la fiche), masquage/restauration du chrome à l'appui long, non-déclenchement du favori/de la fiche pendant l'appui long, labels sémantiques, badges affichés (sous-étape 2.4), distinction vidéo de l'indicateur photo |
 | `property_detail_test.dart` | Contenu de la fiche détail, porte d'authentification |
 | `property_detail_dismiss_test.dart` | Fermeture par swipe (seuil de confirmation), scroll vertical du contenu sans fermeture accidentelle |
 | `snappy_page_physics_test.dart` | Tuning du ressort personnalisé |
-| `filters_sheet_test.dart` | Repli/dépliage de « Plus de filtres », enregistrement d'une recherche (dialogue + confirmation), réinitialisation du budget au changement de transaction, état "zéro résultat" |
+| `filters_sheet_test.dart` | Repli/dépliage de « Plus de filtres », enregistrement d'une recherche (dialogue + confirmation), réinitialisation du budget au changement de transaction, état "zéro résultat", fermeture par swipe vers le bas (sous-étape 2.4) |
 | `saved_searches_sheet_test.dart` | Chargement/renommage/suppression d'une recherche sauvegardée depuis l'accès rapide, état vide, chargement d'une recherche menant à "zéro résultat" |
+| `property_badge_test.dart` | Dérivation des 5 badges (`propertyBadges()`), ordre de priorité, round-trip JSON des champs sources |
 
 `network_image_mock` est requis dans tout test qui rend un `Image.network` — sans lui, `flutter test` bloque toutes les requêtes HTTP et fait échouer le test avec un timer en attente (voir [CONTRIBUTING.md](CONTRIBUTING.md)).
 

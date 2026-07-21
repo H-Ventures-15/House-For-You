@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:house_for_you/core/widgets/property_card.dart';
 import 'package:house_for_you/data/datasources/mock/mock_property_data.dart';
+import 'package:house_for_you/data/models/property_media.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 
 final _longPressDuration = kLongPressTimeout + kPressTimeout;
@@ -216,6 +217,83 @@ void main() {
         );
       });
       handle.dispose();
+    },
+  );
+
+  testWidgets(
+    'un bien exclusif avec visite virtuelle affiche ses badges (max 2)',
+    (tester) async {
+      final exclusiveProperty = mockProperties.firstWhere((p) => p.isExclusive);
+      await mockNetworkImagesFor(() async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: PropertyCard.feed(
+                property: exclusiveProperty,
+                isFavorite: false,
+                onTap: () {},
+                onToggleFavorite: () => true,
+                onShare: () {},
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Exclusivité'), findsOneWidget);
+        expect(find.text('Visite virtuelle'), findsOneWidget);
+      });
+    },
+  );
+
+  testWidgets(
+    'un média vidéo dans la galerie affiche l\'icône de distinction sur '
+    'l\'indicateur',
+    (tester) async {
+      final withVideo = property.copyWith(
+        media: [
+          PropertyMedia(
+            id: 'media-photo',
+            propertyId: property.id,
+            mediaType: MediaType.photo,
+            storageProvider: StorageProvider.supabase,
+            storagePath: 'https://picsum.photos/seed/video-test-0/800/600',
+            position: 0,
+            isCover: true,
+            processingStatus: MediaProcessingStatus.ready,
+            createdAt: DateTime(2026, 1, 1),
+          ),
+          PropertyMedia(
+            id: 'media-video',
+            propertyId: property.id,
+            mediaType: MediaType.video,
+            storageProvider: StorageProvider.supabase,
+            storagePath: 'https://picsum.photos/seed/video-test-1/800/600',
+            thumbnailUrl: 'https://picsum.photos/seed/video-test-1/800/600',
+            position: 1,
+            processingStatus: MediaProcessingStatus.ready,
+            createdAt: DateTime(2026, 1, 1),
+          ),
+        ],
+      );
+      await mockNetworkImagesFor(() async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: PropertyCard.feed(
+                property: withVideo,
+                isFavorite: false,
+                onTap: () {},
+                onToggleFavorite: () => true,
+                onShare: () {},
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byIcon(Icons.videocam_rounded), findsOneWidget);
+      });
     },
   );
 }

@@ -34,6 +34,10 @@ class Property {
     this.terrace = false,
     this.energyScore,
     this.constructionYear,
+    this.isExclusive = false,
+    this.isFeatured = false,
+    this.hasVirtualTour = false,
+    this.previousPrice,
     required this.postalCode,
     required this.city,
     this.province,
@@ -71,6 +75,14 @@ class Property {
   final bool terrace;
   final String? energyScore;
   final int? constructionYear;
+
+  /// Badges éditoriaux/commerciaux (voir `property_badge.dart`) — mock à
+  /// cette étape, `previousPrice` sert uniquement à dériver le badge "Prix
+  /// réduit" (jamais affiché tel quel).
+  final bool isExclusive;
+  final bool isFeatured;
+  final bool hasVirtualTour;
+  final num? previousPrice;
 
   final String postalCode;
   final String city;
@@ -131,6 +143,10 @@ class Property {
       terrace: json['terrace'] as bool? ?? false,
       energyScore: json['energy_score'] as String?,
       constructionYear: json['construction_year'] as int?,
+      isExclusive: json['is_exclusive'] as bool? ?? false,
+      isFeatured: json['is_featured'] as bool? ?? false,
+      hasVirtualTour: json['has_virtual_tour'] as bool? ?? false,
+      previousPrice: json['previous_price'] as num?,
       postalCode: json['postal_code'] as String,
       city: json['city'] as String,
       province: json['province'] as String?,
@@ -177,6 +193,10 @@ class Property {
         'terrace': terrace,
         'energy_score': energyScore,
         'construction_year': constructionYear,
+        'is_exclusive': isExclusive,
+        'is_featured': isFeatured,
+        'has_virtual_tour': hasVirtualTour,
+        'previous_price': previousPrice,
         'postal_code': postalCode,
         'city': city,
         'province': province,
@@ -215,6 +235,10 @@ class Property {
       terrace: terrace,
       energyScore: energyScore,
       constructionYear: constructionYear,
+      isExclusive: isExclusive,
+      isFeatured: isFeatured,
+      hasVirtualTour: hasVirtualTour,
+      previousPrice: previousPrice,
       postalCode: postalCode,
       city: city,
       province: province,

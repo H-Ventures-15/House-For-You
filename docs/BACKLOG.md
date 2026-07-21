@@ -2,7 +2,7 @@
 
 > **Statut : vivant.** Toutes les idées du projet, classées par priorité. Aucune idée évoquée en cours de développement ne doit être perdue — si elle est écartée d'une étape en cours, elle atterrit ici plutôt que d'être oubliée. Une idée qui passe en développement est déplacée vers [ROADMAP.md](ROADMAP.md) et retirée d'ici.
 >
-> Dernière mise à jour : 2026-07-20 (sous-étape 2.3).
+> Dernière mise à jour : 2026-07-21 (sous-étape 2.4).
 
 ---
 
@@ -19,6 +19,7 @@
 
 *Valeur claire, pas bloquant, à traiter après le cœur du MVP (étapes 3-9).*
 
+- **Deep links réels pour le partage** — le partage (feed et fiche détail) inclut depuis la sous-étape 2.4 un lien placeholder stable (`https://houseforyou.be/biens/{id}`) qui ne résout rien de réel aujourd'hui. Construire la résolution web (redirection vers l'App Store si l'app n'est pas installée, ouverture directe de la fiche sinon) nécessite une décision d'infrastructure (Universal Links iOS/App Links Android, domaine public réel) hors périmètre de ce sprint — voir [DECISIONS.md](DECISIONS.md) ADR-022.
 - **Vidéo dans le feed** — le modèle de données est déjà prêt (`PropertyMedia.mediaType`, `storageProvider`, `playbackId`). Reste à choisir Cloudflare Stream vs Mux, intégrer un lecteur (`video_player`/`chewie` ou SDK du fournisseur choisi), et adapter la galerie du feed pour lire plutôt qu'afficher une vignette statique.
 - **Fiche agence dédiée** — le modèle `Agency` existe et est déjà affiché (logo, nom) dans le feed et la fiche bien ; une vraie page accessible en push depuis la fiche bien reste à construire (pas d'annuaire/recherche d'agences au MVP, volontairement).
 - **Dashboard agence** — consultation des statistiques réelles issues de `property_events` (vue `agency_property_stats` déjà esquissée dans [DATABASE_PLAN.md](DATABASE_PLAN.md)), gestion des leads reçus. Hors périmètre de l'app mobile grand public — probablement une interface web séparée.

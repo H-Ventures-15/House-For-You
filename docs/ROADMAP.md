@@ -4,7 +4,7 @@
 >
 > Légende État : ✅ Terminé · 🟡 En cours · ⬜ À faire
 >
-> Dernière mise à jour : 2026-07-20 (sous-étape 2.3 — recherche, filtres et recherches sauvegardées).
+> Dernière mise à jour : 2026-07-21 (sous-étape 2.4 — micro-interactions premium & corrections UX).
 
 ---
 
@@ -44,9 +44,10 @@
 4. **Sous-étape 2.1 — Fluidité du swipe façon TikTok** (commit `3c3759c`, 2026-07-20) — voir ci-dessous.
 5. **Sous-étape 2.2 — Gestes & interactions naturelles** (2026-07-20) — voir ci-dessous.
 6. **Sous-étape 2.3 — Recherche, filtres et recherches sauvegardées** (2026-07-20) — voir ci-dessous.
+7. **Sous-étape 2.4 — Micro-interactions premium & corrections UX** (2026-07-21) — voir ci-dessous.
 
-**État** : ✅ Terminé (le périmètre initial et ses extensions successives sont livrés). L'étape avait été formellement close avant l'étape 3 puis rouverte deux fois (sous-étapes 2.2 et 2.3), à chaque fois à la demande explicite d'Hugo — cohérent avec la règle « une seule étape à la fois » de [CLAUDE.md](../CLAUDE.md) puisqu'aucune extension n'a été anticipée sans validation.
-**Date** : 2026-07-19 → 2026-07-20
+**État** : ✅ Terminé (le périmètre initial et ses extensions successives sont livrés). L'étape avait été formellement close avant l'étape 3 puis rouverte trois fois (sous-étapes 2.2, 2.3 et 2.4), à chaque fois à la demande explicite d'Hugo — cohérent avec la règle « une seule étape à la fois » de [CLAUDE.md](../CLAUDE.md) puisqu'aucune extension n'a été anticipée sans validation.
+**Date** : 2026-07-19 → 2026-07-21
 **Commentaires** : deux bugs réels découverts et corrigés en cours d'étape (documentés dans les commits et [DECISIONS.md](DECISIONS.md)) — `PageView` du feed sans `scrollDirection: Axis.vertical` explicite, et feuille de filtres sans ancêtre `Material` (cassait `TextField`/`InkWell`). Les deux ont été détectés par les tests avant merge.
 
 ### Sous-étape 2.1 — Fluidité du swipe façon TikTok
@@ -87,6 +88,25 @@
 **État** : ✅ Terminé
 **Date** : 2026-07-20
 **Commentaires** : 9 tests ajoutés dans deux nouveaux fichiers (`test/filters_sheet_test.dart`, `test/saved_searches_sheet_test.dart`) — 39 tests au total désormais (voir [TECH_ARCHITECTURE.md](TECH_ARCHITECTURE.md) section 11). Aucune régression sur les Sprints 2.2/2.3 (gestes, fluidité) — fichiers concernés non modifiés, tests correspondants toujours au vert. Décision produit : les recherches sauvegardées ne passent volontairement pas par `requireAuth()` à cette étape (voir [DECISIONS.md](DECISIONS.md) ADR-016).
+
+### Sous-étape 2.4 — Micro-interactions premium & corrections UX (« Sprint 2.5 »)
+
+**Objectif** : transformer l'app d'un prototype fonctionnel en expérience mobile premium — micro-interactions, animations, retours haptiques, lisibilité, cohérence générale — sans anticiper l'Étape 3.
+
+**Description** (désignée « Sprint 2.5 » dans la demande d'Hugo — numérotée ici comme sous-étape de l'Étape 2, dans la continuité des sous-étapes 2.1/2.2/2.3) :
+- **Bug de navigation rapporté** — investigation approfondie (code + tests dédiés) : aucun défaut trouvé dans `StatefulShellRoute`/`goBranch`/`BranchFadeContainer`, qui suivent le pattern officiellement recommandé par `go_router`. Le symptôme n'a été observé que dans le serveur web de développement, jamais reproduit par `flutter test` — voir [DECISIONS.md](DECISIONS.md) ADR-019 pour le détail de l'investigation. Tests de régression permanents ajoutés verrouillant exactement les séquences demandées.
+- **Fermeture de la feuille de filtres par swipe vers le bas** — geste suivant le doigt en direct, priorité au scroll interne, seuil de 32 % ou de vitesse, fond flouté proportionnel au geste (`lib/core/widgets/blurred_modal_sheet.dart`) — voir [DECISIONS.md](DECISIONS.md) ADR-020.
+- **Animation du favori affinée** — rebond marqué à l'ajout, fondu discret au retrait (`property_card.dart`).
+- **Indicateur de médias** — distinction visuelle photo/vidéo (icône caméra), légère ombre pour la lisibilité sur fond clair.
+- **Badges éditoriaux/commerciaux** (Exclusivité, Coup de cœur, Prix réduit, Visite virtuelle, Nouveau) — dérivés à la volée depuis `Property`, jamais plus de 2 par carte — voir [DECISIONS.md](DECISIONS.md) ADR-021.
+- **Micro-animations de pression** (`PressableScale`, `lib/core/widgets/pressable_scale.dart`) sur favori, partager, agence, boutons de la barre flottante, CTA des filtres.
+- **Retours haptiques cohérents** — changement d'onglet, sélection de filtre importante, application des filtres, chargement d'une recherche sauvegardée, franchissement des seuils de fermeture (fiche détail, feuille de filtres).
+- **Dégradés retravaillés** — intensité concentrée sur la zone basse utile du feed, jamais de grande zone noire.
+- **Partage amélioré** — lien placeholder stable, annulation jamais comptée comme un partage réel (`ShareResultStatus.dismissed`) — voir [DECISIONS.md](DECISIONS.md) ADR-022. Deep links réels reportés au [BACKLOG.md](BACKLOG.md).
+
+**État** : ✅ Terminé (vérification code : `flutter analyze`/`flutter test` verts ; vérification [QA_CHECKLIST.md](QA_CHECKLIST.md) sur iPhone physique **à faire par Hugo** — voir [DECISIONS.md](DECISIONS.md) ADR-018, le navigateur de développement n'est jamais l'arbitre final).
+**Date** : 2026-07-21
+**Commentaires** : 21 tests ajoutés (`test/main_shell_test.dart` — séquences de navigation complètes ; `test/filters_sheet_test.dart` — fermeture par swipe ; `test/property_badge_test.dart` — dérivation des badges ; `test/property_card_gestures_test.dart` — badges affichés, distinction vidéo de l'indicateur) — 63 tests au total désormais. Aucune régression sur les sous-étapes 2.1/2.2/2.3 (fichiers de fluidité/gestes/filtres existants non modifiés en profondeur, seuls des ajouts ciblés).
 
 ---
 

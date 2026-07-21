@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_colors.dart';
@@ -202,6 +203,7 @@ class _SavedSearchTile extends ConsumerWidget {
   }
 
   void _handleLoad(BuildContext context, WidgetRef ref) {
+    HapticFeedback.selectionClick();
     ref
         .read(searchFiltersControllerProvider.notifier)
         .update((_) => search.filters);

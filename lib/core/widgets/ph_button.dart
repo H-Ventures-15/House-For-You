@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
+import 'pressable_scale.dart';
 
 enum PhButtonVariant { primary, secondary, text }
 
@@ -68,6 +69,7 @@ class PhButton extends StatelessWidget {
         ),
     };
 
-    return expand ? SizedBox(width: double.infinity, child: button) : button;
+    final scaled = PressableScale(child: button);
+    return expand ? SizedBox(width: double.infinity, child: scaled) : scaled;
   }
 }

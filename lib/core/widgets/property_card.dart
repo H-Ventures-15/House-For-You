@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import '../../data/models/agency.dart';
 import '../../data/models/property.dart';
+import '../../data/models/property_badge.dart';
 import '../../data/models/property_media.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
+import 'pressable_scale.dart';
 import 'snappy_page_physics.dart';
 
 /// Un seul composant, deux variantes — garantit la cohérence visuelle entre
@@ -200,46 +202,54 @@ class _FavoriteButton extends StatelessWidget {
   final bool isFavorite;
   final VoidCallback onTap;
 
+  /// Rebond marqué à l'ajout (dépassement puis retour, voir
+  /// `Curves.easeOutBack`) — l'ajout est l'action qui mérite d'être fêtée.
+  static final Animatable<double> _addTween = TweenSequence<double>([
+    TweenSequenceItem(
+      tween: Tween(begin: 0.6, end: 1.25)
+          .chain(CurveTween(curve: Curves.easeOutBack)),
+      weight: 60,
+    ),
+    TweenSequenceItem(
+      tween:
+          Tween(begin: 1.25, end: 1.0).chain(CurveTween(curve: Curves.easeOut)),
+      weight: 40,
+    ),
+  ]);
+
+  /// Retrait discret — simple fondu/échelle sans rebond ni effet
+  /// spectaculaire (voir section 3 du sprint : "aucun effet dramatique").
+  static final Animatable<double> _removeTween =
+      Tween(begin: 0.85, end: 1.0).chain(CurveTween(curve: Curves.easeOut));
+
   @override
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
       label: isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris',
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(AppSpacing.sm),
-          decoration: const BoxDecoration(
-            color: Colors.white70,
-            shape: BoxShape.circle,
-            boxShadow: kFloatingButtonShadow,
-          ),
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 220),
-            transitionBuilder: (child, animation) => ScaleTransition(
-              scale: TweenSequence<double>([
-                TweenSequenceItem(
-                  tween: Tween(
-                    begin: 0.6,
-                    end: 1.25,
-                  ).chain(CurveTween(curve: Curves.easeOutBack)),
-                  weight: 60,
-                ),
-                TweenSequenceItem(
-                  tween: Tween(
-                    begin: 1.25,
-                    end: 1.0,
-                  ).chain(CurveTween(curve: Curves.easeOut)),
-                  weight: 40,
-                ),
-              ]).animate(animation),
-              child: child,
+      child: PressableScale(
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.all(AppSpacing.sm),
+            decoration: const BoxDecoration(
+              color: Colors.white70,
+              shape: BoxShape.circle,
+              boxShadow: kFloatingButtonShadow,
             ),
-            child: Icon(
-              isFavorite ? Icons.favorite : Icons.favorite_border,
-              key: ValueKey(isFavorite),
-              color: isFavorite ? AppColors.error : AppColors.textPrimary,
-              size: 20,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              transitionBuilder: (child, animation) => ScaleTransition(
+                scale:
+                    (isFavorite ? _addTween : _removeTween).animate(animation),
+                child: child,
+              ),
+              child: Icon(
+                isFavorite ? Icons.favorite : Icons.favorite_border,
+                key: ValueKey(isFavorite),
+                color: isFavorite ? AppColors.error : AppColors.textPrimary,
+                size: 20,
+              ),
             ),
           ),
         ),
@@ -258,19 +268,21 @@ class _ShareButton extends StatelessWidget {
     return Semantics(
       button: true,
       label: 'Partager ce bien',
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(AppSpacing.sm),
-          decoration: const BoxDecoration(
-            color: Colors.white70,
-            shape: BoxShape.circle,
-            boxShadow: kFloatingButtonShadow,
-          ),
-          child: const Icon(
-            Icons.share_outlined,
-            color: AppColors.textPrimary,
-            size: 20,
+      child: PressableScale(
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.all(AppSpacing.sm),
+            decoration: const BoxDecoration(
+              color: Colors.white70,
+              shape: BoxShape.circle,
+              boxShadow: kFloatingButtonShadow,
+            ),
+            child: const Icon(
+              Icons.share_outlined,
+              color: AppColors.textPrimary,
+              size: 20,
+            ),
           ),
         ),
       ),
@@ -338,6 +350,11 @@ class _FeedCardState extends State<_FeedCard>
   /// favori/partager) pour ne laisser que le média. Voir UX_RULES.md
   /// section 6 bis.
   bool _isChromeHidden = false;
+
+  /// Maximum 1 ou 2 badges visibles à la fois (voir sprint 2.5, section 5) —
+  /// jamais toute la liste, pour ne jamais surcharger la carte.
+  List<PropertyBadge> get _badges =>
+      propertyBadges(widget.property).take(2).toList();
 
   @override
   bool get wantKeepAlive => true;
@@ -452,13 +469,18 @@ class _FeedCardState extends State<_FeedCard>
                           AppSpacing.lg,
                         ),
                         decoration: const BoxDecoration(
+                          // Intensité concentrée sur la zone basse utile
+                          // (prix/titre/description) : le dégradé reste
+                          // quasi transparent sur la première moitié, pour
+                          // ne jamais masquer excessivement la photo (voir
+                          // sprint 2.5, section 8).
                           gradient: LinearGradient(
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
-                            stops: [0, 0.55, 1],
+                            stops: [0, 0.65, 1],
                             colors: [
                               Colors.transparent,
-                              Color(0x99000000),
+                              Color(0x80000000),
                               AppColors.overlayScrim,
                             ],
                           ),
@@ -528,7 +550,7 @@ class _FeedCardState extends State<_FeedCard>
                             0,
                           ),
                           child: _PhotoIndicator(
-                            count: media.length,
+                            media: media,
                             currentIndex: _photoIndex,
                           ),
                         ),
@@ -543,6 +565,17 @@ class _FeedCardState extends State<_FeedCard>
                       child: SafeArea(
                         bottom: false,
                         child: _AgencyBadge(agency: widget.agency!),
+                      ),
+                    ),
+                  ),
+                if (_badges.isNotEmpty)
+                  Positioned(
+                    right: AppSpacing.md,
+                    top: media.length > 1 ? AppSpacing.xxl : AppSpacing.md,
+                    child: IgnorePointer(
+                      child: SafeArea(
+                        bottom: false,
+                        child: _BadgeStack(badges: _badges),
                       ),
                     ),
                   ),
@@ -762,29 +795,109 @@ class _AgencyBadge extends StatelessWidget {
   }
 }
 
-class _PhotoIndicator extends StatelessWidget {
-  const _PhotoIndicator({required this.count, required this.currentIndex});
+/// Badges éditoriaux/commerciaux compacts (Exclusivité, Coup de cœur, Prix
+/// réduit, Visite virtuelle, Nouveau) — au plus 2 à la fois (voir
+/// `_FeedCardState._badges`), empilés verticalement pour rester lisibles
+/// même à deux, sans jamais surcharger la carte.
+class _BadgeStack extends StatelessWidget {
+  const _BadgeStack({required this.badges});
 
-  final int count;
+  final List<PropertyBadge> badges;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        for (final badge in badges) ...[
+          _BadgeChip(badge: badge),
+          if (badge != badges.last) const SizedBox(height: AppSpacing.xs),
+        ],
+      ],
+    );
+  }
+}
+
+class _BadgeChip extends StatelessWidget {
+  const _BadgeChip({required this.badge});
+
+  final PropertyBadge badge;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: 4,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+        boxShadow: kFloatingButtonShadow,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(propertyBadgeIcon(badge), size: 12, color: Colors.white),
+          const SizedBox(width: AppSpacing.xs),
+          Text(
+            propertyBadgeLabel(badge),
+            style: AppTypography.caption.copyWith(color: Colors.white),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PhotoIndicator extends StatelessWidget {
+  const _PhotoIndicator({required this.media, required this.currentIndex});
+
+  final List<PropertyMedia> media;
   final int currentIndex;
 
   @override
   Widget build(BuildContext context) {
+    final count = media.length;
     return Row(
       children: List.generate(count, (index) {
+        final isVideo = media[index].mediaType == MediaType.video;
         return Expanded(
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOut,
-            height: 3,
-            margin: const EdgeInsets.symmetric(horizontal: 2),
-            decoration: BoxDecoration(
-              color: index <= currentIndex ? Colors.white : Colors.white30,
-              borderRadius: BorderRadius.circular(2),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                _buildSegment(index),
+                if (isVideo)
+                  const Icon(
+                    Icons.videocam_rounded,
+                    size: 8,
+                    color: Colors.white,
+                    shadows: kOverlayTextShadow,
+                  ),
+              ],
             ),
           ),
         );
       }),
+    );
+  }
+
+  Widget _buildSegment(int index) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+      height: 3,
+      decoration: BoxDecoration(
+        color: index <= currentIndex ? Colors.white : Colors.white30,
+        borderRadius: BorderRadius.circular(2),
+        // Légère ombre : garde les segments lisibles même sur une photo
+        // très claire (ciel, mur blanc...), pas seulement sur fond sombre.
+        boxShadow: const [
+          BoxShadow(color: Colors.black38, blurRadius: 3, offset: Offset(0, 1)),
+        ],
+      ),
     );
   }
 }

@@ -2,7 +2,7 @@
 
 > **Statut : vivant.** Registre des décisions importantes (architecture, produit, UX, choix de packages). Format court : Contexte → Décision → Conséquences. **Toute règle d'[UX_RULES.md](UX_RULES.md) qui serait un jour cassée doit d'abord avoir une entrée ici expliquant pourquoi.** Les décisions ne se suppriment jamais, même remplacées — une décision remplacée reste tracée avec un renvoi vers celle qui la remplace.
 >
-> Dernière mise à jour : 2026-07-20 (règle Mobile First / iOS plateforme de validation officielle).
+> Dernière mise à jour : 2026-07-21 (Sprint 2.5 — micro-interactions premium & corrections UX).
 
 ---
 
@@ -222,6 +222,48 @@
 **Justification** : le navigateur de développement n'a ni les mêmes primitives de geste (pas de VoiceOver/TalkBack réel, pas de retour haptique, pas de safe areas natives type encoche/Dynamic Island), ni le même moteur de rendu/scroll, ni les mêmes contraintes de performance qu'un iPhone physique. Une fluidité perçue comme parfaite dans Chrome peut cacher une saccade réelle sur iPhone (et inversement) — seul le device cible réel peut juger. Cette règle formalise une pratique déjà appliquée en continu depuis la fin de l'étape 1 (voir [ROADMAP.md](ROADMAP.md) étape 11 : « l'app a été validée fonctionnelle sur iPhone physique... dès la fin de l'étape 1 »), sans changer l'architecture existante — elle rend explicite un arbitrage qui était jusqu'ici implicite.
 
 **Conséquences** : création de [docs/QA_CHECKLIST.md](QA_CHECKLIST.md), la checklist officielle à dérouler avant chaque validation de sprint, organisée par catégories (feed, fiche du bien, filtres, navigation, micro-interactions, performances, accessibilité, qualité du code) — voir [CONTRIBUTING.md](CONTRIBUTING.md) pour le processus de validation complet qui l'intègre. Le sandbox de développement (serveur web) reste un outil d'itération légitime et encouragé, mais ne doit jamais servir d'arbitre final sur une question UX.
+
+---
+
+## ADR-019 — Bug de navigation rapporté : investigué en profondeur, non reproduit dans le code ni dans les tests
+
+**Contexte** : Sprint 2.5, premier point demandé — Hugo rapporte qu'après avoir tapé sur Favoris ou Profil, il ne peut plus revenir correctement sur Découvrir. La demande était explicite : identifier la cause réelle dans GoRouter/`StatefulShellRoute`/l'architecture de navigation, corriger proprement, pas de contournement.
+
+**Investigation** : lecture complète de `app_router.dart`, `main_shell.dart`, `branch_fade_container.dart` — le pattern (`StatefulShellRoute` + `goBranch(index, initialLocation: index == currentIndex)` + conteneur custom à fondu) est exactement le pattern recommandé par la documentation officielle de `go_router` (confirmé en lisant le code source du package, `go_router-14.8.1`). Instrumentation temporaire (`debugPrint` dans `MainShell.build`/`onDestinationSelected`) puis tests dédiés (`test/main_shell_test.dart`, groupe « séquences de navigation Sprint 2.5 ») couvrant exactement les séquences demandées (Découvrir→Favoris→Découvrir, Découvrir→Profil→Découvrir, Favoris→Profil→Découvrir, changements rapides, conservation du bien courant et des filtres actifs) : **tous passent, `NavigationBar.selectedIndex` reste systématiquement synchronisé avec le contenu affiché**, y compris après ouverture/fermeture d'une fiche détail avant un changement d'onglet.
+
+En revanche, le symptôme rapporté par Hugo **a bien été observé** dans le serveur web de développement (`.claude/launch.json`) : contenu et pastille de sélection de la bottom bar désynchronisés, y compris dès le tout premier chargement de page sans aucune interaction, et un journal navigateur montrant des `WebSocketConnectionClosed`/doubles exécutions côté DWDS après plusieurs redémarrages du serveur sur le même port. Ce comportement est resté strictement confiné au navigateur de développement (jamais reproduit par les tests `flutter test`, l'oracle déterministe).
+
+**Décision** : ne pas modifier l'architecture de navigation (`StatefulShellRoute`/`BranchFadeContainer`/`goBranch`), aucune preuve de défaut dans le code — modification spéculative écartée (voir [CONTRIBUTING.md](CONTRIBUTING.md) section 4, « pas d'abstraction prématurée »/pas de changement sans preuve). À la place : ajout de tests de régression permanents verrouillant exactement les séquences demandées (section 15 du sprint), conformément à ADR-018 : le navigateur de développement n'est jamais l'arbitre, seul le comportement sur iPhone physique compte en cas de doute.
+
+**Conséquences** : si le symptôme réapparaît sur iPhone physique (à vérifier par Hugo via [QA_CHECKLIST.md](QA_CHECKLIST.md) section 4 — c'est la seule vérification qui fait foi), il faudra le documenter avec un scénario de reproduction précis (quel geste, quelle vitesse, quel enchaînement) pour rouvrir l'investigation avec des éléments nouveaux ; l'hypothèse la plus probable dans ce cas serait une corruption d'état liée au hot reload en cours de développement (`StatefulShellRoute` utilise une `GlobalKey` interne au package, sensible à ce type d'artefact), pas un défaut du code compilé.
+
+## ADR-020 — Fermeture de la feuille de filtres par swipe : notifications de scroll plutôt qu'un `GestureDetector` concurrent
+
+**Contexte** : Sprint 2.5 demande que la feuille de filtres (`showBlurredModalSheet`) se ferme par swipe vers le bas, tout en gardant le scroll interne (`ListView` de `FiltersSheet`) prioritaire tant qu'il n'est pas remonté en haut — les deux gestes partagent le même axe (vertical), contrairement au cas déjà résolu de ADR-002 (axes opposés, désambiguïsation native).
+
+**Décision** : plutôt qu'un second `VerticalDragGestureRecognizer` (via `GestureDetector`) placé au-dessus du contenu — qui entrerait en conflit de même axe avec le `Scrollable` du `ListView`, la classe de bug déjà documentée en ADR-004 — la fermeture repose entièrement sur les notifications de scroll (`OverscrollNotification` pour `ClampingScrollPhysics`, `ScrollUpdateNotification` avec `pixels < minScrollExtent` pour `BouncingScrollPhysics`, la physique par défaut sur iOS) qui remontent naturellement depuis le `ListView` via `NotificationListener<ScrollNotification>`. Ce mécanisme ne participe jamais à l'arène de gestes : il n'existe aucune concurrence à arbitrer, le scroll interne garde nativement la main tant qu'il n'est pas à sa borne.
+
+**Alternative envisagée et écartée** : un `GestureDetector` sur une zone restreinte (la poignée grise en haut de la feuille uniquement), qui aurait évité tout conflit d'axe mais n'aurait permis de fermer qu'en saisissant précisément cette petite poignée — écarté car la demande explicite était de pouvoir « balayer vers le bas naturellement », depuis n'importe quelle zone du contenu.
+
+**Conséquences** : `ListView` de `FiltersSheet` explicitement en `physics: const AlwaysScrollableScrollPhysics()` pour garantir que le geste fonctionne même quand le contenu ne déborde pas de l'écran (peu de filtres visibles). Seuil de fermeture identique à celui déjà établi pour la fiche détail (32 % de la hauteur ou vitesse de relâchement, voir ADR-004) — cohérence intentionnelle entre les deux mécanismes de fermeture par swipe de l'app. Testé (`test/filters_sheet_test.dart`, groupe « fermeture par swipe vers le bas » : swipe long, swipe court, scroll prioritaire, croix/retour système toujours fonctionnels).
+
+## ADR-021 — Badges éditoriaux dérivés à la volée plutôt que stockés, champs sources ajoutés à `Property`
+
+**Contexte** : Sprint 2.5 demande des badges (Nouveau, Exclusivité, Visite virtuelle, Coup de cœur, Prix réduit) « en prévoyant le modèle de données de façon propre sans connecter Supabase ». Aucun concept équivalent n'existait dans [DATABASE_PLAN.md](DATABASE_PLAN.md) avant ce sprint.
+
+**Décision** : quatre champs bruts ajoutés à `Property` (`isExclusive`, `isFeatured`, `hasVirtualTour`, `previousPrice` — voir `lib/data/models/property.dart`), et une fonction pure `propertyBadges(Property)` (`lib/data/models/property_badge.dart`) qui dérive la liste des badges applicables (« Nouveau » se déduit de `publishedAt`, moins de 14 jours ; « Prix réduit » de `previousPrice > price` ; les trois autres sont des flags éditoriaux directs). Le composant d'affichage (`_BadgeStack`, `property_card.dart`) n'affiche jamais plus de 2 badges, dans un ordre de priorité fixe (Exclusivité → Coup de cœur → Prix réduit → Visite virtuelle → Nouveau).
+
+**Justification** : dériver plutôt que stocker un « badge » explicite évite une désynchronisation possible (un bien publié il y a 20 jours ne doit plus jamais afficher « Nouveau », sans tâche de nettoyage périodique) et suit le même principe déjà appliqué aux recherches sauvegardées (`defaultSavedSearchName`/`savedSearchSubtitle`, voir [TECH_ARCHITECTURE.md](TECH_ARCHITECTURE.md) section 5 bis) : dériver à la volée depuis des données déjà fiables plutôt que dupliquer un état.
+
+**Conséquences** : ces quatre champs sont déjà ceux qui alimenteront la vraie donnée à la bascule Supabase (étape 10) — aucune migration de « badge » séparée à prévoir, seule une colonne par champ sur `properties`. Quelques biens mock (`mock_property_data.dart`) enrichis pour la démonstration. Testé (`test/property_badge_test.dart`, `test/property_card_gestures_test.dart`).
+
+## ADR-022 — Partage : lien placeholder stable, annulation jamais comptée comme un partage réel
+
+**Contexte** : Sprint 2.5 demande de « gérer proprement l'annulation » du partage natif (`share_plus`) et de « prévoir un lien placeholder stable », sans construire de deep link réel (explicitement reporté au backlog).
+
+**Décision** : le texte partagé inclut désormais un lien `https://houseforyou.be/biens/{propertyId}` (placeholder — ce domaine ne résout rien de réel aujourd'hui, voir [BACKLOG.md](BACKLOG.md)) en plus du texte descriptif déjà existant. Le résultat de `SharePlus.instance.share()` (`ShareResult.status`) est vérifié : si l'utilisateur ferme la feuille de partage système sans choisir d'action (`ShareResultStatus.dismissed`), l'évènement `share` n'est **pas** envoyé à `AnalyticsService` — un partage annulé ne doit jamais gonfler artificiellement les statistiques de partage réelles.
+
+**Conséquences** : `discover_screen.dart` et `property_detail_screen.dart` partagent la même logique (dupliquée à l'identique dans les deux fichiers, cohérent avec le fait qu'ils n'ont pas de contrôleur de partage commun aujourd'hui — pas d'abstraction prématurée pour deux occurrences, voir [CONTRIBUTING.md](CONTRIBUTING.md) section 4). Le jour où les deep links réels seront construits (voir [BACKLOG.md](BACKLOG.md)), seul le domaine/chemin du lien changera, pas la logique d'annulation.
 
 ---
 

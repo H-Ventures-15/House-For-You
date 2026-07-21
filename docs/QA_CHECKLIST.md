@@ -68,7 +68,7 @@ Les cases non applicables à une fonctionnalité donnée (ex. « vidéos » avan
 - [ ] Double tap sur le média ajoute/retire le favori
 - [ ] Animation du cœur (apparition rapide, légère augmentation de taille, disparition douce — jamais agressive ni enfantine)
 - [ ] Boutons (favori, partager, filtres, retour) réagissent immédiatement au tap
-- [ ] Badges (agence, indicateur photo) affichés correctement
+- [ ] Badges (agence, indicateur photo, badges éditoriaux Exclusivité/Coup de cœur/Prix réduit/Visite virtuelle/Nouveau — max 2 par carte) affichés correctement
 - [ ] Haptic Feedback présent et discret (double tap favori — voir [UX_RULES.md](UX_RULES.md) section 6)
 - [ ] Transitions cohérentes avec l'esprit iOS (`easeOut*`/`easeInBack`, jamais `Curves.linear` sur une animation perceptible)
 - [ ] Indicateur de médias (stories) synchronisé avec la photo affichée

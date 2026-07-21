@@ -99,9 +99,12 @@ Aucune autre ombre libre ne doit apparaître dans le code — étendre `kFloatin
 | Fermeture fiche détail | Translation + rotation interactive suivant le doigt (« balancer »), seuil 32 % largeur ou vitesse, `easeIn`/`easeOutBack` selon confirmation | `property_detail_screen.dart` (`_SwipeToDismiss`) |
 | Feuille de filtres/recherches enregistrées | Flou + assombrissement progressifs du fond, glissement depuis le bas, `easeOutCubic` (ouverture) / `easeInCubic` (fermeture), 380/260 ms | `lib/core/widgets/blurred_modal_sheet.dart` |
 | Barre de recherche flottante | Opacité + translation verticale liées en continu à la position de scroll du feed (pas de show/hide binaire), recalée sur 0/1 dès qu'une page est franchie | `discover_screen.dart` |
-| Indicateur photo (stories) | `AnimatedContainer` 200 ms sur chaque segment | `property_card.dart` (`_PhotoIndicator`) |
+| Indicateur photo (stories) | `AnimatedContainer` 200 ms sur chaque segment, légère ombre portée (contraste sur photo claire) et icône caméra (8 px) sur les segments vidéo | `property_card.dart` (`_PhotoIndicator`) |
 | Masquage de l'interface à l'appui long | `AnimatedOpacity` 180 ms, `Curves.easeOut`, sur l'ensemble du chrome de la carte (regroupé en un seul widget) et sur la barre flottante (réutilise sa visibilité continue existante) | `property_card.dart` (`_FeedCardState`), `discover_screen.dart` |
 | Repli/dépliage « Plus de filtres » | `AnimatedSize` 220 ms, `Curves.easeOut` ; chevron `AnimatedRotation` 220 ms (0 → 0,5 tour) | `filters/filters_sheet.dart` |
+| Favori — ajout vs retrait (Sprint 2.5) | Ajout : rebond marqué (`TweenSequence` 0.6→1.25 `easeOutBack`→1.0 `easeOut`, identique au cœur du double tap). Retrait : fondu/échelle discret sans rebond (0.85→1.0 `easeOut`) — jamais d'effet spectaculaire à un retrait | `property_card.dart` (`_FavoriteButton`) |
+| Micro-pression des boutons (Sprint 2.5) | `PressableScale` — réduction à 0.94 via `AnimatedScale` 120 ms `easeOut` sur `onPointerDown`/`onPointerUp`, observée via `Listener` (jamais un `GestureDetector`, pour ne jamais intercepter le tap du widget enveloppé) | `core/widgets/pressable_scale.dart` |
+| Fermeture de la feuille de filtres par swipe (Sprint 2.5) | Suivi du doigt en direct via les notifications de scroll (`OverscrollNotification`/`ScrollUpdateNotification`, jamais un `GestureDetector` concurrent du scroll interne) ; seuil 32 % de la hauteur ou vitesse de relâchement ; retour doux en place sinon (`AnimationController` 220 ms `easeOut`) ; fond flouté proportionnel à `1 - progression du drag` | `core/widgets/blurred_modal_sheet.dart` (`_DismissibleSheet`) |
 
 Règle transversale : toute transition respecte l'esprit Material 3 tout en visant une sensation proche d'iOS — courbes `easeOut*`/`easeIn*` privilégiées, jamais `Curves.linear` pour une animation perceptible par l'utilisateur.
 
@@ -117,8 +120,10 @@ Règle transversale : toute transition respecte l'esprit Material 3 tout en visa
 | `ErrorState` | État d'erreur uniforme, bouton « Réessayer » optionnel | — |
 | `PlaceholderScreen` | Écran temporaire élégant (icône + titre + sous-titre, entrée animée) | Utilisé par Rechercher/Favoris/Profil tant qu'ils ne sont pas développés |
 | `FloatingSearchBar` | Barre flottante verre dépoli du feed | — |
-| `BlurredModalSheet` (`showBlurredModalSheet`) | Feuille modale plein écran avec flou de fond | Utilisée par la feuille de filtres |
+| `BlurredModalSheet` (`showBlurredModalSheet`) | Feuille modale plein écran avec flou de fond, fermable par swipe vers le bas (Sprint 2.5) | Utilisée par la feuille de filtres |
 | `promptSavedSearchName` (`saved_search_name_dialog.dart`) | Dialogue `AlertDialog` standard partagé pour nommer/renommer une recherche sauvegardée, champ pré-rempli | Enregistrement (`filters_sheet.dart`) et renommage (`saved_searches_sheet.dart`) |
+| `PressableScale` (Sprint 2.5) | Réduction légère à l'appui (voir section 9) — enveloppe un bouton/carte existant sans changer son comportement de tap | Favori, partager, agence (« Contacter l'agence »), boutons de la barre flottante, CTA « Afficher N biens », boutons ronds de la fiche détail |
+| Badges éditoriaux (Sprint 2.5, `property_card.dart` `_BadgeChip`/`_BadgeStack`) | Puce compacte (icône + libellé, fond noir semi-transparent, cohérent avec `_AgencyBadge`) — au plus 2 empilées verticalement | Feed (`PropertyCard.feed`), voir [PRODUCT_SPEC.md](PRODUCT_SPEC.md) section 10.1 bis pour les 5 types et leur dérivation |
 
 **Widgets de la feuille de filtres** (`lib/features/discover/filters/filter_widgets.dart`) — spécifiques à cet écran mais suivent strictement la palette/espacement globaux :
 
@@ -135,7 +140,20 @@ Règle transversale : toute transition respecte l'esprit Material 3 tout en visa
 
 Material Symbols (`Icons.*_rounded` systématiquement quand la variante existe — cohérence visuelle « arrondie » alignée sur les rayons du design system). Aucune icône custom au MVP.
 
-## 12. Ce qui n'est **pas** encore standardisé
+## 12. Retour haptique (Sprint 2.5)
+
+Règle transversale : léger et ponctuel, jamais répétitif sur un geste continu (scroll, swipe normal) — voir [UX_RULES.md](UX_RULES.md) section 7 bis pour la règle produit complète.
+
+| Déclencheur | Type | Fichier |
+|---|---|---|
+| Double tap favori (ajout/retrait réel) | `HapticFeedback.lightImpact()` | `property_card.dart` |
+| Franchissement du seuil de fermeture (fiche détail, feuille de filtres) | `HapticFeedback.lightImpact()`, une seule fois par franchissement | `property_detail_screen.dart`, `blurred_modal_sheet.dart` |
+| Changement d'onglet de la navigation inférieure | `HapticFeedback.selectionClick()` | `main_shell.dart` |
+| Sélection d'un filtre important (type de transaction) | `HapticFeedback.selectionClick()`, uniquement sur un changement réel (pas un re-tap) | `filters_sheet.dart` |
+| Application des filtres (« Afficher N biens ») | `HapticFeedback.selectionClick()` | `filters_sheet.dart` |
+| Chargement d'une recherche sauvegardée | `HapticFeedback.selectionClick()` | `filters_sheet.dart`, `saved_searches_sheet.dart` |
+
+## 13. Ce qui n'est **pas** encore standardisé
 
 - Mode sombre (l'app est mode clair uniquement au MVP — le fond noir du feed est une exception immersive locale, pas un mode sombre global).
 - Composants de formulaire dédiés (champ texte standard, sélecteur de date) — le dialogue de nommage des recherches sauvegardées (`promptSavedSearchName`) utilise volontairement l'`AlertDialog`/`TextField` par défaut de Material, sans habillage design system, en attendant les formulaires de lead (étape 7) qui justifieront un vrai composant de champ texte partagé.

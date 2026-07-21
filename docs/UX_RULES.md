@@ -72,10 +72,18 @@ House For You vise la sensation d'une application Apple ou Airbnb — minimalist
 
 - Swipe horizontal vers la droite, depuis la zone sous la galerie photo (la galerie garde son propre swipe horizontal dédié aux photos — pas de conflit, voir [DECISIONS.md](DECISIONS.md)).
 - Effet « balancer » : translation + légère rotation autour du bord gauche, suivi du doigt en direct (1:1), seuil de distance (32 % de la largeur d'écran) ou de vitesse avant confirmation de fermeture.
+- Retour haptique léger (`HapticFeedback.lightImpact()`) au franchissement du seuil de confirmation, une seule fois par franchissement — pas à chaque frame de drag (voir section 7 bis).
 - **Jamais de fond blanc pendant le geste** : la route est non opaque (`opaque: false`) et le feed déjà chargé en dessous transparaît directement à mesure que la fiche s'écarte — comme si la fiche flottait au-dessus du feed, jamais comme un écran qui se recharge.
 - Après fermeture, retour exact au même bien dans le feed, swipe vertical immédiatement fonctionnel (aucun état résiduel du geste de fermeture ne doit persister).
 - Le scroll vertical du contenu de la fiche (`CustomScrollView`) et le swipe horizontal de fermeture sont sur des axes opposés — même principe d'indépendance native que le swipe vertical/horizontal du feed (voir [DECISIONS.md](DECISIONS.md) ADR-002) : aucun scroll vertical, aussi rapide soit-il, ne déclenche une fermeture accidentelle.
 - Le bouton retour visible (coin supérieur gauche) et le retour matériel/système (bouton Android, `Navigator.pop` standard) fonctionnent toujours, indépendamment du swipe interactif — ce sont trois chemins de fermeture distincts vers la même action.
+
+## 7 bis. Retour haptique (Sprint 2.5)
+
+- Léger et ponctuel — jamais répétitif sur un geste continu (scroll normal, swipe de feed) : uniquement sur une action qui aboutit ou un seuil franchi.
+- Déclencheurs : ajout/retrait d'un favori (déjà posé section 6), franchissement du seuil de fermeture d'une fiche ou d'une bottom sheet, changement d'onglet de la navigation inférieure, sélection d'un filtre important (type de transaction), application des filtres, chargement d'une recherche sauvegardée.
+- Un re-tap sur une valeur déjà sélectionnée (ex. retaper le type de transaction déjà actif) ne déclenche **jamais** de haptique — il ne représente aucun changement réel.
+- Voir [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) section 12 pour le détail fichier par fichier.
 
 ## 9. Bottom Sheet (filtres, recherches enregistrées)
 
@@ -83,6 +91,8 @@ House For You vise la sensation d'une application Apple ou Airbnb — minimalist
 - Fond flouté (`BackdropFilter`, `lib/core/widgets/blurred_modal_sheet.dart`) plutôt qu'un simple assombrissement — signale immédiatement à l'utilisateur qu'il reste « au-dessus » du contexte précédent, pas dans un nouvel écran.
 - Hauteur quasi pleine (94 % de l'écran) avec un liseré du fond flouté visible en haut — l'utilisateur comprend immédiatement où il est sans README.
 - Poignée de glissement (petite barre grise) en haut de la feuille, coins arrondis 28 px.
+- **Fermeture par swipe vers le bas** (Sprint 2.5), en plus de la croix et du retour système — trois chemins équivalents. Le geste suit le doigt en direct (fond qui se dé-floute/s'éclaircit proportionnellement), seuil de 32 % de la hauteur ou de vitesse avant confirmation, retour doux en place sinon.
+- **Priorité au scroll interne** : tant que le contenu de la feuille n'est pas remonté tout en haut, un swipe vers le bas fait défiler ce contenu — il ne ferme la feuille qu'une fois le scroll déjà à son sommet (voir [DECISIONS.md](DECISIONS.md) pour l'implémentation via les notifications de scroll plutôt qu'un geste concurrent).
 - En-tête fixe : fermeture (X) à gauche, titre centré, « Réinitialiser » à droite (visible seulement si des filtres sont actifs).
 - Pied fixe : bouton d'action principal, toujours visible même si le contenu défile.
 - Le clavier ne doit **jamais** masquer le champ actif ou le bouton d'action — la feuille remonte avec `MediaQuery.viewInsets.bottom` (voir `FiltersSheet` dans `filters_sheet.dart`).
