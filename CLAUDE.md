@@ -18,6 +18,8 @@ House For You — app de recherche immobilière mobile-first (Flutter + Supabase
 - **Commits réguliers, une fonctionnalité à la fois.** Éviter les commits fourre-tout.
 - **Documentation mise à jour avant chaque commit de fonctionnalité.** Toute fonctionnalité validée (développée, testée) doit mettre à jour les documents `/docs` concernés — au minimum `PRODUCT_SPEC.md`, `ROADMAP.md`, `CHANGELOG.md`, et `DECISIONS.md` si un choix important a été fait — **avant** le commit qui la clôt, dans le même commit que le code. Voir `docs/CONTRIBUTING.md` section 6 pour le détail du processus.
 - **Aucune règle d'UX ne se casse silencieusement.** Toute évolution qui s'écarte d'une règle de `docs/UX_RULES.md` doit d'abord avoir une entrée dans `docs/DECISIONS.md` expliquant pourquoi.
+- **Mobile First = règle absolue.** iOS (iPhone) est la seule plateforme de validation officielle du produit — Web/macOS/Android ne servent qu'au développement et au débogage. En cas de divergence de comportement entre le navigateur et l'iPhone, l'iPhone fait toujours foi. Voir `docs/UX_RULES.md` section 2 bis et `docs/DECISIONS.md` ADR-018.
+- **Aucun sprint terminé sans `docs/QA_CHECKLIST.md`.** Avant d'annoncer un sprint terminé, dérouler entièrement cette checklist (feed, fiche du bien, filtres, navigation, micro-interactions, performances, accessibilité, qualité du code) — voir `docs/CONTRIBUTING.md` section 8 pour le processus complet (développer → tester → QA_CHECKLIST → documentation → commit → push → attendre validation d'Hugo).
 
 ## Contraintes d'environnement connues
 
@@ -38,3 +40,4 @@ Voir `docs/README.md` pour l'index complet et l'articulation entre les documents
 - Pourquoi tel choix (architecture, UX, package) : `docs/DECISIONS.md`.
 - Idées non planifiées : `docs/BACKLOG.md`.
 - Conventions Git/Flutter/tests : `docs/CONTRIBUTING.md`.
+- Checklist de validation avant chaque fin de sprint : `docs/QA_CHECKLIST.md`.

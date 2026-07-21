@@ -23,6 +23,7 @@ Une application mobile de recherche immobilière pour la Belgique francophone, a
 | [BACKLOG.md](BACKLOG.md) | Quelles idées n'ont pas encore de date, classées par priorité ? |
 | [DECISIONS.md](DECISIONS.md) | Pourquoi a-t-on choisi ceci plutôt que cela ? Registre des décisions importantes. |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Comment contribue-t-on au code (conventions Git, Flutter, tests) ? |
+| [QA_CHECKLIST.md](QA_CHECKLIST.md) | Qu'est-ce qui doit être vérifié, catégorie par catégorie, avant de considérer un sprint terminé ? |
 
 ## Comment ces documents s'articulent
 
@@ -48,7 +49,9 @@ CONTRIBUTING.md décrit comment on écrit tout ce qui précède
       └──► BACKLOG.md capture ce qu'on ne fait pas encore
 ```
 
-En résumé : **PRODUCT_SPEC** dit *quoi*, **ROADMAP** dit *quand*, **DESIGN_SYSTEM**/**UX_RULES** disent *comment ça se comporte*, **TECH_ARCHITECTURE**/**DATABASE_PLAN**/**API_PLAN** disent *comment c'est construit*, **DECISIONS** dit *pourquoi*, **CHANGELOG** dit *ce qui a été fait*, **BACKLOG** dit *ce qu'on n'a pas encore fait*, **CONTRIBUTING** dit *comment on travaille*.
+En résumé : **PRODUCT_SPEC** dit *quoi*, **ROADMAP** dit *quand*, **DESIGN_SYSTEM**/**UX_RULES** disent *comment ça se comporte*, **TECH_ARCHITECTURE**/**DATABASE_PLAN**/**API_PLAN** disent *comment c'est construit*, **DECISIONS** dit *pourquoi*, **CHANGELOG** dit *ce qui a été fait*, **BACKLOG** dit *ce qu'on n'a pas encore fait*, **CONTRIBUTING** dit *comment on travaille*, **QA_CHECKLIST** dit *comment on vérifie que c'est prêt*.
+
+**iOS est la plateforme de validation officielle du produit** (voir [DECISIONS.md](DECISIONS.md) ADR-018) — le Web, macOS et Android ne servent qu'au développement et au débogage. [QA_CHECKLIST.md](QA_CHECKLIST.md) formalise cette règle en checklist déroulable avant chaque validation de sprint.
 
 ## Document historique
 

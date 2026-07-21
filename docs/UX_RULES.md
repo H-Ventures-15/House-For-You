@@ -2,7 +2,7 @@
 
 > **Statut : vivant.** Ce document liste toutes les règles d'expérience utilisateur non négociables. **Aucune règle ici ne doit être cassée sans qu'une entrée correspondante soit ajoutée à [DECISIONS.md](DECISIONS.md) expliquant pourquoi.** Si le code et ce document divergent, le document doit être corrigé dans le même commit que le changement.
 >
-> Dernière mise à jour : 2026-07-20 (sous-étape 2.3 — recherche, filtres et recherches sauvegardées).
+> Dernière mise à jour : 2026-07-20 (règle Mobile First / iOS plateforme de validation officielle).
 
 ---
 
@@ -17,6 +17,15 @@ House For You vise la sensation d'une application Apple ou Airbnb — minimalist
 - Toute conception démarre par l'écran le plus petit visé (iPhone), jamais par le desktop.
 - Le desktop reste **compatible** (l'app doit compiler et rester utilisable en `flutter run -d macos`/web) mais n'est **jamais** la contrainte de mise en page. Aucune fonctionnalité ne doit être conçue « pour le grand écran d'abord ».
 - Référence : [architecture-mvp.md](architecture-mvp.md) section 1, [PRODUCT_SPEC.md](PRODUCT_SPEC.md) section 7.
+
+### 2 bis. iOS, plateforme de validation officielle — règle absolue
+
+- **iPhone (iOS) est la seule plateforme de référence pour valider le produit.** Web, macOS et Android ne servent qu'au développement, au débogage et aux tests rapides — jamais à trancher une décision produit.
+- **En cas de divergence de comportement entre le navigateur et l'iPhone, l'iPhone fait toujours foi.** Aucune exception.
+- Domaines concernés par cette règle, sans exhaustivité : gestes, animations, transitions, performances, safe areas, interactions tactiles, fluidité, micro-interactions.
+- Toute décision UX doit être pensée pour l'usage réel sur iPhone — pas pour ce que le navigateur de développement permet ou facilite.
+- Avant de considérer un sprint terminé, dérouler [docs/QA_CHECKLIST.md](QA_CHECKLIST.md), idéalement sur un iPhone physique (déjà en pratique depuis la fin de l'étape 1, voir [ROADMAP.md](ROADMAP.md) étape 11).
+- Voir [DECISIONS.md](DECISIONS.md) ADR-018 pour la justification complète de cette règle.
 
 ## 3. Utilisation à une seule main
 

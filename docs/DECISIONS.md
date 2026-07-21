@@ -2,7 +2,7 @@
 
 > **Statut : vivant.** Registre des décisions importantes (architecture, produit, UX, choix de packages). Format court : Contexte → Décision → Conséquences. **Toute règle d'[UX_RULES.md](UX_RULES.md) qui serait un jour cassée doit d'abord avoir une entrée ici expliquant pourquoi.** Les décisions ne se suppriment jamais, même remplacées — une décision remplacée reste tracée avec un renvoi vers celle qui la remplace.
 >
-> Dernière mise à jour : 2026-07-20 (sous-étape 2.3 — recherche, filtres et recherches sauvegardées).
+> Dernière mise à jour : 2026-07-20 (règle Mobile First / iOS plateforme de validation officielle).
 
 ---
 
@@ -213,4 +213,16 @@
 
 ---
 
-**Documents liés** : [UX_RULES.md](UX_RULES.md) · [TECH_ARCHITECTURE.md](TECH_ARCHITECTURE.md) · [ROADMAP.md](ROADMAP.md) · [CHANGELOG.md](CHANGELOG.md)
+## ADR-018 — Mobile First : iOS est la plateforme de validation officielle, jamais le navigateur
+
+**Contexte** : House For You a toujours été conçu mobile-first en principe ([UX_RULES.md](UX_RULES.md) section 2, [PRODUCT_SPEC.md](PRODUCT_SPEC.md) section 7 : « mobile first, une seule main », desktop compatible mais jamais la contrainte de conception). En pratique, une partie du développement et de la prévisualisation passe par le serveur web de développement (`.claude/launch.json`, voir [TECH_ARCHITECTURE.md](TECH_ARCHITECTURE.md) section 13) — un outil précieux pour itérer vite, mais dont le rendu (gestes souris, absence de safe areas réelles, performance différente) peut diverger sensiblement d'un iPhone physique. Sans arbitrage explicite, cette commodité de développement risquait de dériver en arbitre implicite des décisions produit.
+
+**Décision** : iOS (iPhone) est formellement la **seule** plateforme de validation officielle du produit. Web, macOS et Android ne servent qu'au développement, au débogage et aux tests rapides — jamais à trancher une décision produit. En cas de divergence de comportement observée entre le navigateur et l'iPhone, **l'iPhone fait toujours foi**, sans exception. Cette règle couvre en particulier les gestes, animations, transitions, performances, safe areas, interactions tactiles, fluidité et micro-interactions — c'est-à-dire l'essentiel de ce qui distingue une application « qui fonctionne » d'une application qui procure une sensation haut de gamme.
+
+**Justification** : le navigateur de développement n'a ni les mêmes primitives de geste (pas de VoiceOver/TalkBack réel, pas de retour haptique, pas de safe areas natives type encoche/Dynamic Island), ni le même moteur de rendu/scroll, ni les mêmes contraintes de performance qu'un iPhone physique. Une fluidité perçue comme parfaite dans Chrome peut cacher une saccade réelle sur iPhone (et inversement) — seul le device cible réel peut juger. Cette règle formalise une pratique déjà appliquée en continu depuis la fin de l'étape 1 (voir [ROADMAP.md](ROADMAP.md) étape 11 : « l'app a été validée fonctionnelle sur iPhone physique... dès la fin de l'étape 1 »), sans changer l'architecture existante — elle rend explicite un arbitrage qui était jusqu'ici implicite.
+
+**Conséquences** : création de [docs/QA_CHECKLIST.md](QA_CHECKLIST.md), la checklist officielle à dérouler avant chaque validation de sprint, organisée par catégories (feed, fiche du bien, filtres, navigation, micro-interactions, performances, accessibilité, qualité du code) — voir [CONTRIBUTING.md](CONTRIBUTING.md) pour le processus de validation complet qui l'intègre. Le sandbox de développement (serveur web) reste un outil d'itération légitime et encouragé, mais ne doit jamais servir d'arbitre final sur une question UX.
+
+---
+
+**Documents liés** : [UX_RULES.md](UX_RULES.md) · [TECH_ARCHITECTURE.md](TECH_ARCHITECTURE.md) · [ROADMAP.md](ROADMAP.md) · [CHANGELOG.md](CHANGELOG.md) · [QA_CHECKLIST.md](QA_CHECKLIST.md)

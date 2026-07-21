@@ -2,7 +2,7 @@
 
 > **Statut : vivant.** Ce document est la Bible produit de House For You. Toute fonctionnalité validée (code mergé sur `main`, testée) doit y être décrite avant le commit qui la clôt. Si ce document et le code divergent, c'est une anomalie à corriger immédiatement — pas une des deux sources qui « a raison ».
 >
-> Dernière mise à jour : 2026-07-20 (fin de la sous-étape 2.3 — voir [ROADMAP.md](ROADMAP.md)).
+> Dernière mise à jour : 2026-07-20 (règle Mobile First / iOS plateforme de validation officielle — voir [DECISIONS.md](DECISIONS.md) ADR-018).
 
 ---
 
@@ -62,6 +62,8 @@ Trois principes non négociables, détaillés et appliqués dans [UX_RULES.md](U
 1. **Mobile first, une seule main.** Chaque écran est pensé pour un usage au pouce, en mouvement. Le desktop reste compatible mais n'est jamais la contrainte de conception.
 2. **Aucune sensation de latence.** Chaque geste doit donner l'impression que l'interface est reliée directement au doigt — swipe, double tap, ouverture/fermeture de fiche, feuille de filtres. Aucun flash blanc, aucune saccade, précache systématique.
 3. **Accès invité par défaut.** Aucune action ne force une connexion au lancement. Seules les actions qui engagent réellement (favori, contact, visite) déclenchent une porte d'authentification contextuelle.
+
+**iOS est la plateforme de validation officielle du produit** — règle absolue, pas seulement un principe de conception. Web, macOS et Android ne servent qu'au développement, au débogage et aux tests rapides ; ils ne doivent jamais orienter une décision produit. En cas de divergence de comportement entre le navigateur et l'iPhone (geste, animation, transition, performance, safe area, interaction tactile, fluidité, micro-interaction), **c'est toujours l'iPhone qui fait foi**. Voir [DECISIONS.md](DECISIONS.md) ADR-018 et [docs/QA_CHECKLIST.md](QA_CHECKLIST.md), la checklist à dérouler avant chaque validation de sprint.
 
 ## 8. Fonctionnement général de l'application
 

@@ -8,6 +8,16 @@
 
 ## [Non publié] — 0.1.0
 
+### 2026-07-20 — Gouvernance : Mobile First absolu + QA_CHECKLIST officielle
+
+**Ajouts**
+- Nouveau document [docs/QA_CHECKLIST.md](QA_CHECKLIST.md) : checklist officielle par catégories (feed, fiche du bien, filtres & recherche, navigation, micro-interactions, performances, accessibilité, qualité du code) à dérouler avant chaque validation de sprint.
+- [DECISIONS.md](DECISIONS.md) ADR-018 : iOS formalisé comme seule plateforme de validation officielle du produit — Web/macOS/Android réservés au développement/débogage, l'iPhone fait foi en cas de divergence de comportement.
+- [CONTRIBUTING.md](CONTRIBUTING.md) : nouveau processus de validation de sprint en 7 étapes (section 8), section « Amélioration continue » (section 9), règle de qualité à 3 critères pour toute nouvelle fonctionnalité, sinon [BACKLOG.md](BACKLOG.md) (section 10).
+- [UX_RULES.md](UX_RULES.md) section 2 bis, [PRODUCT_SPEC.md](PRODUCT_SPEC.md) section 7, [CLAUDE.md](../CLAUDE.md) et [docs/README.md](README.md) : renvois croisés vers cette règle.
+
+**Non modifié** : documentation uniquement, aucun code Dart touché — aucune régression possible sur les sprints précédents.
+
 ### 2026-07-20 — Recherche, filtres et recherches sauvegardées (sous-étape 2.3 / « Sprint 2.4 »)
 
 **Ajouts**

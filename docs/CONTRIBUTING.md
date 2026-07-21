@@ -2,7 +2,7 @@
 
 > **Statut : vivant.** Règles de développement. S'appliquent à tout contributeur — humain ou agent. Ce document est référencé par [CLAUDE.md](../CLAUDE.md) (racine du dépôt), qui reste la source des règles de travail à très haut niveau (une étape à la fois, mock avant Supabase...) ; ce document-ci détaille le *comment* : conventions concrètes de code, Git, tests.
 >
-> Dernière mise à jour : 2026-07-20.
+> Dernière mise à jour : 2026-07-20 (processus de validation de sprint, amélioration continue, règle de qualité).
 
 ---
 
@@ -19,6 +19,8 @@ flutter test
 La CI GitHub Actions (`.github/workflows/ci.yml`) exécute `flutter format --set-exit-if-changed .`, `flutter analyze` et `flutter test` sur chaque push et pull request vers `main` — un push qui casse l'une de ces trois commandes casse la CI. Ne jamais contourner (`--no-verify`, ignorer un avertissement d'analyse) sans une raison documentée dans le commit concerné.
 
 **Documentation** — depuis la mise en place de `/docs` (2026-07-20), une quatrième vérification s'ajoute avant tout commit de fonctionnalité : **la documentation concernée est-elle à jour ?** Voir section 6.
+
+**QA_CHECKLIST** — avant de considérer un **sprint** (par opposition à un commit isolé) terminé, une cinquième vérification s'ajoute : dérouler entièrement [docs/QA_CHECKLIST.md](QA_CHECKLIST.md), en priorité sur iPhone (voir [DECISIONS.md](DECISIONS.md) ADR-018). Voir section 8 pour le processus complet.
 
 ## 2. Convention des commits
 
@@ -106,6 +108,34 @@ Si le code et la documentation divergent malgré tout (ça arrive), corriger la 
 - Le projet doit vivre sur un volume supportant les liens symboliques (voir [TECH_ARCHITECTURE.md](TECH_ARCHITECTURE.md) section 13 — exFAT est incompatible avec les builds iOS/macOS).
 - `flutter pub get` puis `flutter gen-l10n` avant tout premier lancement (voir [README.md](README.md) racine du dépôt).
 
+## 8. Processus de validation d'un sprint
+
+Un **sprint** (fonctionnalité ou groupe de fonctionnalités livrées ensemble) ne doit **jamais** être annoncé comme terminé sans avoir suivi les sept étapes suivantes, dans l'ordre :
+
+1. **Développer** la fonctionnalité.
+2. **Tester** la fonctionnalité (`flutter test` passe, voir section 5).
+3. **Dérouler entièrement [docs/QA_CHECKLIST.md](QA_CHECKLIST.md)** — en priorité sur iPhone, jamais uniquement sur le navigateur de développement (voir [DECISIONS.md](DECISIONS.md) ADR-018). Une case qui échoue bloque la validation : corriger avant de continuer, pas après.
+4. **Mettre à jour toute la documentation concernée** (voir section 6 pour la liste des documents à vérifier systématiquement).
+5. **Commit Git** (documentation + code ensemble, voir section 2 pour la convention).
+6. **Push GitHub.**
+7. **Attendre la validation d'Hugo** avant d'entamer le sprint suivant — ne jamais enchaîner sur une étape non demandée explicitement (voir [CLAUDE.md](../CLAUDE.md) — « une seule étape à la fois »).
+
+## 9. Amélioration continue
+
+Contribuer à House For You n'est pas qu'exécuter des demandes au pied de la lettre. Si, en cours de sprint, une meilleure interaction, une meilleure animation, une meilleure architecture, une meilleure performance ou une meilleure expérience utilisateur apparaît clairement — et reste cohérente avec la vision du produit ([PRODUCT_SPEC.md](PRODUCT_SPEC.md)) et ses règles déjà posées ([UX_RULES.md](UX_RULES.md), [DECISIONS.md](DECISIONS.md)) — elle doit être proposée, ou implémentée directement si elle est clairement bénéfique et reste dans le périmètre du sprint en cours. L'objectif n'est pas simplement de livrer ce qui est demandé, mais de construire la meilleure application immobilière mobile possible.
+
+Toute amélioration significative ajoutée de cette façon doit être documentée comme le reste (voir section 6) — en particulier dans [DECISIONS.md](DECISIONS.md) si elle constitue un choix produit ou technique notable, pour que sa justification reste traçable.
+
+## 10. Règle de qualité — trois critères
+
+Chaque nouvelle fonctionnalité doit répondre à **au moins un** des trois critères suivants :
+
+1. Apporter une vraie valeur à l'utilisateur.
+2. Améliorer la fluidité ou les performances.
+3. Renforcer l'effet « waouh » et la qualité perçue.
+
+**Une idée qui ne répond à aucun des trois critères ne doit pas être implémentée dans l'immédiat** — elle est consignée dans [BACKLOG.md](BACKLOG.md) plutôt que construite, pour ne jamais perdre une bonne idée tout en gardant chaque sprint focalisé sur ce qui compte réellement.
+
 ---
 
-**Documents liés** : [../CLAUDE.md](../CLAUDE.md) · [TECH_ARCHITECTURE.md](TECH_ARCHITECTURE.md) · [DECISIONS.md](DECISIONS.md) · [CHANGELOG.md](CHANGELOG.md)
+**Documents liés** : [../CLAUDE.md](../CLAUDE.md) · [TECH_ARCHITECTURE.md](TECH_ARCHITECTURE.md) · [DECISIONS.md](DECISIONS.md) · [CHANGELOG.md](CHANGELOG.md) · [QA_CHECKLIST.md](QA_CHECKLIST.md)
