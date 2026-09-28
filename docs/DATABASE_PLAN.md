@@ -2,7 +2,7 @@
 
 > **Statut : vivant, non implémenté.** Ce document prépare intégralement le schéma Supabase (Postgres) qui sera mis en place à l'étape 10 ([ROADMAP.md](ROADMAP.md)). **Aucune migration réelle n'existe encore** — toutes les données de l'application actuelle sont mock (`lib/data/datasources/mock/`). Ce document doit rester synchronisé avec les modèles Dart (`lib/data/models/`) : tout nouveau champ ajouté à un modèle doit apparaître ici, et réciproquement.
 >
-> Dernière mise à jour : 2026-07-20 (sous-étape 2.3 — recherches sauvegardées mock complètes).
+> Dernière mise à jour : 2026-09-28 (renvoi vers la préparation de l'intégration Whise).
 
 ---
 
@@ -303,7 +303,8 @@ Modèle Dart : `PropertyEvent`. Côté app, `AnalyticsService` (mock aujourd'hui
 3. Comportement exact de `saved_searches.notify_on_new_match` (alertes) — dépend de l'infrastructure de notifications push, non choisie (voir [BACKLOG.md](BACKLOG.md)).
 4. Fournisseur vidéo définitif (Cloudflare Stream vs Mux) — voir [BACKLOG.md](BACKLOG.md).
 5. Sérialisation `toJson`/`fromJson` de `SearchFilters` — nécessaire pour la colonne `saved_searches.filters jsonb`, absente aujourd'hui (voir note section 3.12 et ADR-010).
+6. Colonnes `external_source`/`external_id` sur `properties` et table `agency_integrations` pour l'import de biens depuis un CRM tiers (Whise) — préparé dans [INTEGRATION_WHISE.md](INTEGRATION_WHISE.md), à intégrer au schéma au moment de la migration.
 
 ---
 
-**Documents liés** : [TECH_ARCHITECTURE.md](TECH_ARCHITECTURE.md) · [API_PLAN.md](API_PLAN.md) · [DECISIONS.md](DECISIONS.md) · [architecture-mvp.md](architecture-mvp.md) (schéma d'origine v3)
+**Documents liés** : [INTEGRATION_WHISE.md](INTEGRATION_WHISE.md) · [TECH_ARCHITECTURE.md](TECH_ARCHITECTURE.md) · [API_PLAN.md](API_PLAN.md) · [DECISIONS.md](DECISIONS.md) · [architecture-mvp.md](architecture-mvp.md) (schéma d'origine v3)

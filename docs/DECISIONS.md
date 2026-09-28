@@ -2,7 +2,7 @@
 
 > **Statut : vivant.** Registre des décisions importantes (architecture, produit, UX, choix de packages). Format court : Contexte → Décision → Conséquences. **Toute règle d'[UX_RULES.md](UX_RULES.md) qui serait un jour cassée doit d'abord avoir une entrée ici expliquant pourquoi.** Les décisions ne se suppriment jamais, même remplacées — une décision remplacée reste tracée avec un renvoi vers celle qui la remplace.
 >
-> Dernière mise à jour : 2026-07-21 (correctif UX ciblé — fluidité de la bottom sheet, seuil naturel du swipe vertical du feed).
+> Dernière mise à jour : 2026-09-28 (ADR-027 — intégrations tierces : synchronisation serveur uniquement).
 
 ---
 
@@ -323,6 +323,16 @@ c'est-à-dire que la physique fournie par l'application (`widget.physics`) devie
 **Alternative envisagée et écartée** : conserver `pageSnapping: true` et n'ajuster que le ressort (`spring`) pour ralentir la sensation. Écartée car elle n'aurait rien changé à la décision de changement de page elle-même (le problème réel), seulement à la vitesse du settle une fois la décision déjà prise par Flutter — n'aurait pas résolu la sur-sensibilité rapportée.
 
 **Conséquences** : `SnappyPageScrollPhysics` (utilisée telle quelle par les deux galeries horizontales, `pageSnapping: true` par défaut) souffre donc probablement du même enveloppement — son `spring` personnalisé n'est vraisemblablement, lui non plus, jamais consulté pour le settle normal des galeries. Volontairement **non corrigé dans ce correctif** (hors périmètre demandé, risque de « dégrader le swipe horizontal entre les médias » explicitement à éviter) — consigné dans [BACKLOG.md](BACKLOG.md) pour réévaluation future. Testé (`test/discover_feed_test.dart` — petit drag revient au bien courant, drag dépassant le seuil change de bien, swipe court mais rapide change de bien, geste diagonal faible ne change rien, swipe horizontal toujours indépendant).
+
+## ADR-027 — Intégrations tierces (Whise et autres CRM) : synchronisation serveur uniquement, jamais depuis l'app
+
+**Contexte** : les agences immobilières belges gèrent leurs biens dans un logiciel métier (Whise notamment, API REST authentifiée par identifiant/mot de passe de l'agence). House For You doit pouvoir importer ces biens sans double saisie. Voir [INTEGRATION_WHISE.md](INTEGRATION_WHISE.md).
+
+**Décision** : toute intégration avec un logiciel tiers se fait par une **synchronisation côté serveur** (Edge Function Supabase planifiée) qui copie les données dans nos propres tables (`properties`, `property_media`…). L'app Flutter ne parle **jamais** à l'API tierce et ne connaît pas son existence : elle lit uniquement Supabase. Les identifiants des agences sont stockés chiffrés côté serveur, dans une table sans aucune policy de lecture client. Les biens importés portent `external_source`/`external_id` pour un upsert idempotent. Le sens de synchro au MVP est tiers → House For You uniquement (lecture seule).
+
+**Alternatives écartées** : (1) appeler l'API Whise directement depuis l'app — impose d'embarquer des identifiants B2B dans un binaire décompilable (viole la règle « pas de secret dans l'app » de `CLAUDE.md`), expose chaque agence à une fuite, et lie l'app à un fournisseur ; (2) demander aux agences de saisir leurs biens deux fois — friction rédhibitoire pour l'adoption.
+
+**Conséquences** : rien à coder avant l'étape 10 (Supabase). Le modèle `Property` Dart ne change pas. L'abstraction `provider` reste générique pour accueillir d'autres CRM. Le mapping détaillé (partiellement hypothétique, à valider sur une vraie réponse d'API) est dans [INTEGRATION_WHISE.md](INTEGRATION_WHISE.md).
 
 ---
 

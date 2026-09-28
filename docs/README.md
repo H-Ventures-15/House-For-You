@@ -20,6 +20,7 @@ Une application mobile de recherche immobilière pour la Belgique francophone, a
 | [TECH_ARCHITECTURE.md](TECH_ARCHITECTURE.md) | Comment le code Flutter est-il structuré, et pourquoi ? |
 | [DATABASE_PLAN.md](DATABASE_PLAN.md) | À quoi ressemblera la base Supabase, avant même qu'elle existe ? |
 | [API_PLAN.md](API_PLAN.md) | Comment l'app parlera-t-elle au backend, une fois connecté ? |
+| [INTEGRATION_WHISE.md](INTEGRATION_WHISE.md) | Comment les biens des agences arriveront-ils depuis leur logiciel Whise ? Préparation, non implémenté. |
 | [BACKLOG.md](BACKLOG.md) | Quelles idées n'ont pas encore de date, classées par priorité ? |
 | [DECISIONS.md](DECISIONS.md) | Pourquoi a-t-on choisi ceci plutôt que cela ? Registre des décisions importantes. |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Comment contribue-t-on au code (conventions Git, Flutter, tests) ? |
